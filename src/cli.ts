@@ -63,6 +63,7 @@ COMMANDS
                             Tools: claude, cursor, copilot, gemini, windsurf, cline, roo, aider
   install-hook [path]       Install pre-commit hook that blocks commits when drift is HIGH
                             Auto-detects husky, lefthook, or plain git hooks
+  uninstall-hook [path]     Remove the agents-sync pre-commit hook
 
   (no command)              Start MCP server (stdio transport)
 
@@ -243,6 +244,15 @@ async function runCli(): Promise<void> {
       const projectPath = resolvePath(positional[1]);
       const manager = hasFlag("--husky") ? "husky" : hasFlag("--lefthook") ? "lefthook" : hasFlag("--git") ? "git" : undefined;
       const result = await runInstallHook({ projectPath, manager, dryRun });
+      process.stdout.write(result.report + "\n");
+      break;
+    }
+
+    case "uninstall-hook": {
+      const { runUninstallHook } = await import("./tools/install-hook.js");
+      const projectPath = resolvePath(positional[1]);
+      const manager = hasFlag("--husky") ? "husky" : hasFlag("--lefthook") ? "lefthook" : hasFlag("--git") ? "git" : undefined;
+      const result = await runUninstallHook({ projectPath, manager, dryRun });
       process.stdout.write(result.report + "\n");
       break;
     }

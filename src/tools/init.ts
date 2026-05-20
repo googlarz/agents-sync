@@ -36,12 +36,14 @@ export async function runInit(options: InitOptions): Promise<InitResult> {
   await assertProjectDir(projectPath);
 
   // 1. Scan (optionally using repomix output as source corpus)
+  process.stderr.write("agents-sync: scanning codebase…\n");
   const corpus = await scan(projectPath, { repomixPath: repomixOutput });
 
   // 2. Load team config (agents-sync.config.json) — non-fatal if missing
   const config = await loadConfig(projectPath);
 
   // 3. Extract metadata and merge config overrides
+  process.stderr.write("agents-sync: extracting with Claude…\n");
   const rawMetadata = await extractMetadata(corpus);
   const metadata = applyConfig(rawMetadata, config);
 

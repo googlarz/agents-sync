@@ -41,6 +41,7 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
   const effectiveTools = tools ?? (config?.tools as ToolName[] | undefined);
 
   // 3. Scan always (optionally using repomix output as source corpus)
+  process.stderr.write("agents-sync: scanning codebase…\n");
   const corpus = await scan(projectPath, { repomixPath: repomixOutput });
 
   // 2. Fast mode: check drift, skip extraction if only LOW signals
@@ -70,6 +71,7 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
     agentsMd = existing;
   } else {
     // Full re-extraction
+    process.stderr.write("agents-sync: extracting with Claude…\n");
     const rawMetadata = await extractMetadata(corpus);
     const metadata = applyConfig(rawMetadata, config);
     agentsMd = appendMcpSection(await generateAgentsMd(metadata), corpus.mcp);

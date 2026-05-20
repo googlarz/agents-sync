@@ -148,6 +148,68 @@ async function installGitHook(projectPath: string, dryRun: boolean): Promise<{ f
   return { files: [hookFile], alreadyInstalled: false };
 }
 
+export interface UninstallHookOptions {
+  projectPath: string;
+  manager?: HookManager;
+  dryRun?: boolean;
+}
+
+export interface UninstallHookResult {
+  manager: HookManager;
+  filesModified: string[];
+  notInstalled: boolean;
+  dryRun: boolean;
+  report: string;
+}
+
+async function removeAgentsSyncFromFile(filePath: string, dryRun: boolean): Promise<boolean> {
+  const content = await fs.readFile(filePath, "utf-8").catch(() => null);
+  if (!content || !content.includes("agents-sync")) return false;
+
+  const lines = content.split("\n");
+  const filtered = lines.filter((l) => !l.includes("agents-sync") && !l.includes(FAIL_MESSAGE));
+  const cleaned = filtered.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
+
+  if (!dryRun) await fs.writeFile(filePath, cleaned, "utf-8");
+  return true;
+}
+
+export async function runUninstallHook(options: UninstallHookOptions): Promise<UninstallHookResult> {
+  const { projectPath, dryRun = false } = options;
+  await assertProjectDir(projectPath);
+
+  const manager = options.manager ?? (await detectManager(projectPath));
+  const filesModified: string[] = [];
+
+  if (manager === "husky") {
+    const hookFile = path.join(projectPath, ".husky", "pre-commit");
+    if (await removeAgentsSyncFromFile(hookFile, dryRun)) filesModified.push(hookFile);
+  } else if (manager === "lefthook") {
+    for (const f of [".lefthook.yml", "lefthook.yml", ".lefthook.yaml", "lefthook.yaml"]) {
+      const p = path.join(projectPath, f);
+      if (await removeAgentsSyncFromFile(p, dryRun)) { filesModified.push(p); break; }
+    }
+  } else {
+    const hookFile = path.join(projectPath, ".git", "hooks", "pre-commit");
+    if (await removeAgentsSyncFromFile(hookFile, dryRun)) filesModified.push(hookFile);
+  }
+
+  const notInstalled = filesModified.length === 0;
+  const lines: string[] = [];
+
+  if (notInstalled) {
+    lines.push("agents-sync hook not found — nothing to remove.");
+  } else if (dryRun) {
+    lines.push(`DRY RUN — would remove agents-sync from:`);
+    for (const f of filesModified) lines.push(`  → ${f}`);
+  } else {
+    lines.push(`✓ Removed agents-sync pre-commit hook (${manager})`);
+    for (const f of filesModified) lines.push(`  → ${f}`);
+  }
+
+  return { manager, filesModified, notInstalled, dryRun, report: lines.join("\n") };
+}
+
 export async function runInstallHook(options: InstallHookOptions): Promise<InstallHookResult> {
   const { projectPath, dryRun = false } = options;
   await assertProjectDir(projectPath);

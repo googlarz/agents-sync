@@ -4,6 +4,17 @@ All notable changes to `@googlarz/agents-sync` are documented here.
 
 ---
 
+## [1.5.1] — 2026-05-20
+
+### Fixed
+- `init` and `sync` now emit progress to stderr (`scanning codebase…` / `extracting with Claude…`) so you can see what's happening during long runs
+- `export` now updates the snapshot hash after writing — `validate` no longer flags freshly exported files as drifted
+- `uninstall-hook` — removes agents-sync pre-commit hook from husky, lefthook, or plain git hooks
+- `validate` without `--strict` now exits 0 (informational) — pass `--strict` or `--ci` to get exit 1 in CI
+- `agents_sync_uninstall_hook` MCP tool added
+
+---
+
 ## [1.5.0] — 2026-05-20
 
 ### Added

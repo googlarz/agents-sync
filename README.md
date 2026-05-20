@@ -344,7 +344,8 @@ Use `--ci` to exit 1 in CI pipelines.
 ### Validate — check files are in sync
 
 ```bash
-npx @googlarz/agents-sync validate .
+npx @googlarz/agents-sync validate .           # Informational (always exits 0)
+npx @googlarz/agents-sync validate . --strict  # CI gate — exits 1 when any file drifted
 ```
 
 ```
@@ -367,6 +368,7 @@ npx @googlarz/agents-sync sync .                     # Re-sync after codebase ch
 npx @googlarz/agents-sync drift .                    # Check what changed
 npx @googlarz/agents-sync lint .                     # Verify codebase against Never rules
 npx @googlarz/agents-sync validate .                 # Check files match AGENTS.md
+npx @googlarz/agents-sync validate . --strict        # Exit 1 when any file drifted (CI)
 npx @googlarz/agents-sync export cursor .            # Re-derive one file (no API call)
 npx @googlarz/agents-sync status .                   # Show sync status
 
@@ -378,6 +380,7 @@ npx @googlarz/agents-sync sync . --fast              # Skip API call if drift is
 
 npx @googlarz/agents-sync install-hook .             # Block commits when drift is HIGH
 npx @googlarz/agents-sync install-hook . --dry-run   # Preview what would be installed
+npx @googlarz/agents-sync uninstall-hook .           # Remove the pre-commit hook
 ```
 
 </details>
@@ -390,6 +393,7 @@ Block commits automatically when AI context files drift from `AGENTS.md`:
 
 ```bash
 npx @googlarz/agents-sync install-hook .
+npx @googlarz/agents-sync uninstall-hook .   # Remove the hook
 ```
 
 Auto-detects your hook manager — **husky**, **lefthook**, or plain **git hooks**. Force a specific one with `--husky`, `--lefthook`, or `--git`.
@@ -532,8 +536,21 @@ Typically $0.05–0.10 using `claude-sonnet-4-6`. Syncs on previously-indexed pr
 | `agents_sync_validate` | Check if all tool files match AGENTS.md |
 | `agents_sync_status` | Show sync status and managed files |
 | `agents_sync_lint` | Verify codebase against Never rules in AGENTS.md |
+| `agents_sync_install_hook` | Install pre-commit hook (husky/lefthook/git) |
+| `agents_sync_uninstall_hook` | Remove the agents-sync pre-commit hook |
 
 </details>
+
+### Claude Code Skill
+
+Use agents-sync as a Claude Code skill — invoke `agents-sync` directly in conversation:
+
+```bash
+# Install the skill
+cp -r skill ~/.claude/skills/agents-sync
+```
+
+Then in Claude Code: `/agents-sync init`, `/agents-sync sync`, `/agents-sync drift`.
 
 ---
 

@@ -1,7 +1,8 @@
 import path from "node:path";
+import fs from "node:fs/promises";
 import { assertProjectDir, readFileSafe } from "../lib/file-utils.js";
 import { AgentsSyncError } from "../lib/errors.js";
-import { loadSnapshot } from "../snapshot/writer.js";
+import { loadSnapshot, saveSnapshot, sha256 } from "../snapshot/writer.js";
 import { deriveAll, type ToolName } from "../derivers/index.js";
 import type { ProjectMetadata } from "../extractor/schema.js";
 
@@ -71,6 +72,17 @@ export async function runExport(options: ExportOptions): Promise<ExportResult> {
   const report = result.error
     ? `✗ ${options.tool}: ${result.error}`
     : `✓ ${options.tool} → ${result.path}`;
+
+  // Update snapshot hash so validate doesn't flag the re-derived file as drifted
+  if (result.written && !result.error) {
+    const updatedSnapshot = { ...snapshot };
+    const content = await fs.readFile(result.path, "utf-8").catch(() => "");
+    const newHash = sha256(content);
+    updatedSnapshot.filesManaged = snapshot.filesManaged.map((f) =>
+      f.path === result.path ? { ...f, sha256: newHash } : f,
+    );
+    await saveSnapshot(updatedSnapshot);
+  }
 
   return {
     tool: options.tool,
