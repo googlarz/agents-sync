@@ -55,6 +55,7 @@ COMMANDS
   sync [path]               Re-sync after codebase changes
   drift [path]              Check what changed since last sync
   validate [path]           Check if all files match AGENTS.md
+  scan [path]               Show what agents-sync detected (no API key needed)
   lint [path]               Verify codebase against 'Never' rules in AGENTS.md
   status [path]             Show sync status and managed files
   export <tool> [path]      Re-derive a single tool file (no API call)
@@ -74,6 +75,7 @@ OPTIONS
   --help, -h                Show this help
 
 EXAMPLES
+  npx @googlarz/agents-sync scan .
   npx @googlarz/agents-sync init .
   npx @googlarz/agents-sync sync . --fast
   npx @googlarz/agents-sync drift . --ci
@@ -220,6 +222,14 @@ async function runCli(): Promise<void> {
       break;
     }
 
+    case "scan": {
+      const { runScanReport } = await import("./tools/scan-report.js");
+      const projectPath = resolvePath(positional[1]);
+      const result = await runScanReport({ projectPath });
+      process.stdout.write(result.report + "\n");
+      break;
+    }
+
     case "export": {
       const { runExport } = await import("./tools/export.js");
       const tool = positional[1];
@@ -242,17 +252,27 @@ async function runCli(): Promise<void> {
   }
 }
 
-runCli().catch((err: unknown) => {
+runCli().catch(async (err: unknown) => {
   if (isAgentsSyncError(err) && err.code === "MISSING_API_KEY") {
+    // Show scan output first so the user knows what we found, then explain setup
+    try {
+      const { runScanReport } = await import("./tools/scan-report.js");
+      const projectPath = subcommand === "init" || subcommand === "sync"
+        ? resolvePath(positional[1])
+        : cwd;
+      const result = await runScanReport({ projectPath });
+      process.stdout.write(result.report + "\n");
+    } catch {
+      // scan failed — skip it and show the plain error message
+    }
     process.stderr.write(
       [
-        "",
         "  agents-sync: ANTHROPIC_API_KEY not set",
         "",
         "  The init and sync commands call Claude to analyze your codebase.",
         "  These commands do NOT need an API key:",
-        "    agents-sync drift     agents-sync validate",
-        "    agents-sync status    agents-sync export",
+        "    agents-sync scan      agents-sync drift",
+        "    agents-sync validate  agents-sync status   agents-sync export",
         "",
         "  Get a key at: https://console.anthropic.com/",
         "  Then set it:  export ANTHROPIC_API_KEY=sk-ant-...",

@@ -9,8 +9,9 @@ import { runExport } from "./tools/export.js";
 import { runValidate } from "./tools/validate.js";
 import { runStatus } from "./tools/status.js";
 import { runLint } from "./tools/lint.js";
+import { runScanReport } from "./tools/scan-report.js";
 
-const VERSION = "1.3.0";
+const VERSION = "1.4.0";
 
 const server = new McpServer({
   name: "agents-sync",
@@ -267,6 +268,24 @@ server.tool(
         content: [{ type: "text" as const, text: result.report }],
         isError: strict && !result.passed ? true : undefined,
       };
+    } catch (e) {
+      return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
+    }
+  },
+);
+
+// ─── agents_sync_scan ────────────────────────────────────────────────────────
+
+server.tool(
+  "agents_sync_scan",
+  "Scan a codebase and show what agents-sync detected — language, framework, dependencies, MCP servers, local skills, gotchas. Read-only, no API key needed. Run before init to verify scanner accuracy.",
+  {
+    projectPath: z.string().describe("Absolute path to the project root directory"),
+  },
+  async ({ projectPath }) => {
+    try {
+      const result = await runScanReport({ projectPath });
+      return { content: [{ type: "text" as const, text: result.report }] };
     } catch (e) {
       return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
     }

@@ -4,7 +4,7 @@
 
 `agents-sync` reads your codebase, generates a canonical `AGENTS.md`, and automatically derives tool-specific files for every AI coding tool you use — Claude Code, Cursor, GitHub Copilot, and more.
 
-One source of truth. No more manually maintaining five config files that are always out of sync.
+One source of truth. No more manually maintaining eight config files that are always out of sync.
 
 ---
 
@@ -21,6 +21,8 @@ Every AI coding tool expects its own context file:
 | Gemini CLI | `GEMINI.md` |
 | Windsurf | `.windsurfrules` |
 | Cline | `.clinerules` |
+| Roo Code | `.roomodes` |
+| Aider | `CONVENTIONS.md` |
 
 If you use more than one tool — and most teams do — you're maintaining these manually. They drift. Conventions you updated in `CLAUDE.md` are still wrong in `.cursorrules`. Your new database is still Postgres in Copilot's mind. A new engineer using Cursor gets guidance that contradicts what Claude Code users know.
 
@@ -35,6 +37,7 @@ Your codebase
      │
      ▼
 [scan]  manifests · directory tree · source samples · README · FIXME/HACK comments
+        MCP servers (.claude/settings.json) · local skills (.claude/commands/)
      │
      ▼
 [extract]  Claude API → structured project metadata (stack, conventions, gotchas, boundaries)
@@ -42,12 +45,14 @@ Your codebase
      ▼
 [generate]  canonical AGENTS.md  ←─── one source of truth
      │
-     ├──▶  CLAUDE.md          (superset + Claude Code-specific additions)
+     ├──▶  CLAUDE.md          (superset + Claude Code-specific additions, skill recommendations)
      ├──▶  .cursorrules       (directive-style, < 400 words)
      ├──▶  .github/copilot-instructions.md  (code-level focus, < 300 words)
      ├──▶  GEMINI.md          (full AGENTS.md + Gemini CLI section)
      ├──▶  .windsurfrules     (directive-style, < 400 words)
-     └──▶  .clinerules        (Always/Never sections, < 400 words)
+     ├──▶  .clinerules        (Always/Never sections, < 400 words)
+     ├──▶  .roomodes          (Roo Code custom modes)
+     └──▶  CONVENTIONS.md    (Aider conventions file)
 ```
 
 ---
@@ -60,6 +65,18 @@ npx @googlarz/agents-sync --help
 
 # Or install globally
 npm install -g @googlarz/agents-sync
+```
+
+---
+
+## Quick Start
+
+```bash
+# See what agents-sync can detect about your project (no API key needed)
+npx @googlarz/agents-sync scan .
+
+# Generate all context files
+ANTHROPIC_API_KEY=sk-ant-... npx @googlarz/agents-sync init .
 ```
 
 ---
@@ -108,6 +125,53 @@ Add to `.cursor/mcp.json` in your project:
 
 ## Usage
 
+### Scan first (no API key needed)
+
+Run `scan` before `init` to see exactly what agents-sync detected about your codebase. No API call, no cost, no config required.
+
+```bash
+npx @googlarz/agents-sync scan .
+```
+
+```
+agents-sync scan — my-project
+
+▸ Project
+  Language:    typescript
+  Framework:   next.js
+  Runtime:     node
+  Name:        my-project
+  Pkg manager: npm
+
+▸ Dependencies
+  24 production, 18 dev
+  Notable: next, react, prisma, @auth/core, zod, tailwindcss +18 more
+
+▸ Structure
+  Top-level dirs: src, public, prisma
+  Total files:    ~347
+  Entry points:   src/app/page.tsx
+  Test dirs:      src
+
+▸ MCP Servers (.claude/settings.json)
+  ✓ postgres — PostgreSQL database access
+  ✓ github — GitHub API integration
+
+▸ Local Skills & Commands
+  ✓ /deploy — Production deployment checklist
+  ✓ /db-migrate — Database migration workflow
+
+▸ Gotchas found in source
+  FIXME src/lib/auth.ts:42 — token refresh race condition, needs mutex
+  HACK  src/api/payments.ts:88 — retry logic bypasses rate limiting
+
+Scanned in 312ms · ~18,400 tokens of context
+
+→ Ready to init. Run:
+  ANTHROPIC_API_KEY=<key> npx @googlarz/agents-sync init .
+  Get a key: https://console.anthropic.com/
+```
+
 ### First run
 
 ```
@@ -116,13 +180,14 @@ Add to `.cursor/mcp.json` in your project:
 
 ```
 ✓ AGENTS.md → /your/project/AGENTS.md
-✓ AGENTS.md → /your/project/AGENTS.md
 ✓ claude → /your/project/CLAUDE.md
 ✓ cursor → /your/project/.cursorrules
 ✓ copilot → /your/project/.github/copilot-instructions.md
 ✓ gemini → /your/project/GEMINI.md
 ✓ windsurf → /your/project/.windsurfrules
 ✓ cline → /your/project/.clinerules
+✓ roo → /your/project/.roomodes
+✓ aider → /your/project/CONVENTIONS.md
 
 ✓ Snapshot saved to .agents-sync/
   → Add AGENTS.md to git. Add .agents-sync/ to .gitignore.
@@ -161,6 +226,33 @@ Recommendation: Re-sync recommended. Run /agents-sync sync.
   2 custom section(s) preserved
 ```
 
+### Lint against your AGENTS.md rules
+
+```bash
+npx @googlarz/agents-sync lint .
+```
+
+Checks your codebase against every mechanically-verifiable rule in your `AGENTS.md` `Never` section — things like "Never instantiate PrismaClient directly" or "Never use `any` type".
+
+```
+agents-sync lint
+
+✓ No violations found (12 rules checked)
+```
+
+Or with violations:
+
+```
+⚠ 2 violation(s) found
+
+  any-type      src/api/webhook.ts:34    parameter typed as 'any' — use 'unknown'
+  direct-db     src/jobs/cleanup.ts:12   direct PrismaClient import outside lib/db.ts
+
+Run `agents-sync sync` to refresh your rules, or fix the violations above.
+```
+
+Use `--ci` to exit 1 when violations are found (for CI pipelines).
+
 ### Validate files are in sync
 
 ```
@@ -178,28 +270,20 @@ AGENTS.md (canonical)  ✓
 Some files are out of sync. Run /agents-sync sync to fix.
 ```
 
-### Standalone CLI
-
-agents-sync also works as a standalone CLI without an MCP host:
+### CLI reference
 
 ```bash
-# Initialize a project
-npx @googlarz/agents-sync init .
-
-# Check drift
-npx @googlarz/agents-sync drift .
-
-# Re-sync
-npx @googlarz/agents-sync sync .
-
-# Validate all files
-npx @googlarz/agents-sync validate .
-
-# Re-derive a single tool file (no Claude API call)
-npx @googlarz/agents-sync export cursor .
-
-# CI mode — exit 1 when drift is HIGH
-npx @googlarz/agents-sync drift . --ci
+npx @googlarz/agents-sync scan .                    # No API key — see what scanner detects
+npx @googlarz/agents-sync init .                    # Generate all context files
+npx @googlarz/agents-sync sync .                    # Re-sync after codebase changes
+npx @googlarz/agents-sync drift .                   # Check what changed
+npx @googlarz/agents-sync lint .                    # Verify codebase against Never rules
+npx @googlarz/agents-sync validate .                # Check files match AGENTS.md
+npx @googlarz/agents-sync export cursor .           # Re-derive one file (no API call)
+npx @googlarz/agents-sync status .                  # Show sync status
+npx @googlarz/agents-sync drift . --ci              # Exit 1 on HIGH drift
+npx @googlarz/agents-sync lint . --ci               # Exit 1 on any violations
+npx @googlarz/agents-sync init . --tools claude,cursor,roo  # Specific tools only
 ```
 
 ---
@@ -215,14 +299,14 @@ The workflow:
 
 ---
 
-## Sample Output
+## What Gets Generated
 
-### Generated AGENTS.md (abbreviated)
+### Canonical AGENTS.md (abbreviated)
 
 ```markdown
 # AGENTS.md
 
-<!-- Generated by agents-sync v1.0.0 on 2026-05-20 -->
+<!-- Generated by agents-sync v1.3.0 on 2026-05-20 -->
 
 ## Project Overview
 Acme Dashboard is an internal analytics tool for the sales team, built with
@@ -248,9 +332,8 @@ Next.js 14 App Router, PostgreSQL via Prisma, and NextAuth.
 4. Co-locate tests: `Button.test.tsx` next to `Button.tsx`
 
 ## Gotchas
-1. Never import `PrismaClient` directly — use `lib/db.ts` singleton. Direct imports
-   cause connection pool exhaustion in Vercel's serverless runtime.
-2. All API routes require auth middleware. Check `middleware.ts` before adding routes.
+1. Never import `PrismaClient` directly — use `lib/db.ts` singleton
+2. All API routes require auth middleware — check `middleware.ts` before adding routes
 
 ## Boundaries
 
@@ -258,24 +341,19 @@ Next.js 14 App Router, PostgreSQL via Prisma, and NextAuth.
 - Commit `.env` or `.env.local`
 - Instantiate `PrismaClient` outside of `lib/db.ts`
 - Use `any` type — use `unknown` and narrow
+
+## MCP Servers
+- **postgres** — PostgreSQL database access
+- **github** — GitHub API integration
 ```
 
-### Derived `.cursorrules` (abbreviated)
+### CLAUDE.md additions
 
-```
-# .cursorrules — managed by agents-sync
-# Language: TypeScript / Next.js 14
+On top of the full AGENTS.md content, the generated `CLAUDE.md` includes:
 
-- Always: use kebab-case filenames
-- Always: named exports only (no default exports except page/layout components)
-- Always: validate external input with Zod
-- Always: co-locate tests (*.test.ts next to source)
-- Never: import PrismaClient directly (use lib/db.ts — pool exhaustion risk)
-- Never: add API routes without auth middleware (check middleware.ts)
-- Never: commit .env or .env.local
-- Never: use `any` type
-- Tests: `npm test`
-```
+- **MCP server documentation** — each detected server with its purpose
+- **Skill recommendations** — suggests relevant Claude Code skills based on your stack (e.g. `test-driven-development` for Vitest projects, `debugging-and-error-recovery` for Express APIs)
+- **Local skill references** — documents your project's own `.claude/commands/` and `.claude/skills/`
 
 ---
 
@@ -298,24 +376,26 @@ These blocks survive every `/agents-sync sync`. Edit them freely.
 
 | Variable | Required | Description |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Yes (for init/sync) | Your Anthropic API key |
+| `ANTHROPIC_API_KEY` | Yes (for init/sync only) | Your Anthropic API key |
 | `AGENTS_SYNC_DEBUG=1` | No | Verbose debug output to stderr |
 | `NO_COLOR=1` | No | Disable ANSI color in output |
+
+`scan`, `drift`, `validate`, `status`, `export`, and `lint` never call the Claude API.
 
 ---
 
 ## MCP Tools Reference
 
-agents-sync exposes 6 MCP tools directly:
-
 | Tool | Description |
 |---|---|
+| `agents_sync_scan` | Show what scanner detected — no API key needed |
 | `agents_sync_init` | Full init: scan, extract, generate, derive, snapshot |
 | `agents_sync_sync` | Re-sync from current codebase state |
 | `agents_sync_drift` | Check what changed since last sync (read-only) |
 | `agents_sync_export` | Re-derive a single tool file |
 | `agents_sync_validate` | Check if all tool files match AGENTS.md |
 | `agents_sync_status` | Show sync status and managed files |
+| `agents_sync_lint` | Verify codebase against Never rules in AGENTS.md |
 
 ---
 
