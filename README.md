@@ -7,16 +7,16 @@
 **9 AI tools · drifts detected in milliseconds · 100% local · ~$0.05–0.10 per sync**
 
 [![npm](https://img.shields.io/npm/v/@googlarz/agents-sync?style=flat-square&label=npm)](https://www.npmjs.com/package/@googlarz/agents-sync)
-[![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
-[![Node.js](https://img.shields.io/badge/Node.js-18%2B-green?style=flat-square)](https://nodejs.org)
+[![License](https://img.shields.io/badge/License-MIT-8B9500?style=flat-square)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-18%2B-3C873A?style=flat-square)](https://nodejs.org)
 
-![Windows](https://img.shields.io/badge/Windows-supported-0078D6?style=flat-square)
-![macOS](https://img.shields.io/badge/macOS-supported-555555?style=flat-square)
-![Linux](https://img.shields.io/badge/Linux-supported-1793D1?style=flat-square)
+![Windows](https://img.shields.io/badge/Windows-supported-0891B2?style=flat-square)
+![macOS](https://img.shields.io/badge/macOS-supported-0891B2?style=flat-square)
+![Linux](https://img.shields.io/badge/Linux-supported-0891B2?style=flat-square)
 
-[![Claude Code](https://img.shields.io/badge/Claude_Code-supported-E8670A?style=flat-square)](https://claude.ai/code)
-[![Cursor](https://img.shields.io/badge/Cursor-supported-4B6EF5?style=flat-square)](https://cursor.com)
-[![Codex CLI](https://img.shields.io/badge/Codex_CLI-supported-412991?style=flat-square)](https://github.com/openai/codex)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-supported-7C3AED?style=flat-square)](https://claude.ai/code)
+[![Cursor](https://img.shields.io/badge/Cursor-supported-7C3AED?style=flat-square)](https://cursor.com)
+[![Codex CLI](https://img.shields.io/badge/Codex_CLI-supported-7C3AED?style=flat-square)](https://github.com/openai/codex)
 [![opencode](https://img.shields.io/badge/opencode-supported-7C3AED?style=flat-square)](https://opencode.ai)
 
 <br/>
