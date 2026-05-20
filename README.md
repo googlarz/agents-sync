@@ -138,6 +138,37 @@ Add to `.cursor/mcp.json` in your project:
 }
 ```
 
+### Codex CLI
+
+Add to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.agents-sync]
+command = "npx"
+args = ["@googlarz/agents-sync"]
+env = { ANTHROPIC_API_KEY = "sk-ant-..." }
+```
+
+### opencode
+
+Add to `~/.config/opencode/config.json`:
+
+```json
+{
+  "mcpServers": {
+    "agents-sync": {
+      "type": "local",
+      "command": ["npx", "@googlarz/agents-sync"],
+      "environment": {
+        "ANTHROPIC_API_KEY": "sk-ant-..."
+      }
+    }
+  }
+}
+```
+
+> **Note for Codex CLI and opencode users:** agents-sync uses the Anthropic API only for `init` and `sync` — the commands that analyze your codebase and generate context files. All other commands (`scan`, `drift`, `lint`, `validate`, `status`, `export`) make no API calls. Get a key at [console.anthropic.com](https://console.anthropic.com/) — the free tier is sufficient for occasional syncs.
+
 ---
 
 ## Usage
