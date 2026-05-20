@@ -1,4 +1,5 @@
 import path from "node:path";
+import crypto from "node:crypto";
 import type { ProjectMetadata } from "../extractor/schema.js";
 import { writeFileAtomic } from "../lib/file-utils.js";
 import { toMcpError } from "../lib/errors.js";
@@ -20,6 +21,8 @@ export interface DerivationResult {
   path: string;
   written: boolean;
   customBlocksPreserved: number;
+  /** SHA-256 of the content that was written — used for snapshot integrity tracking. */
+  contentHash?: string;
   /** true when dryRun is enabled — file was not written. */
   skipped?: boolean;
   error?: string;
@@ -126,6 +129,7 @@ export async function deriveAll(options: DeriveAllOptions): Promise<DerivationRe
       path: agentsMdPath,
       written: !dryRun,
       customBlocksPreserved: 0,
+      contentHash: dryRun ? undefined : crypto.createHash("sha256").update(agentsMdContent).digest("hex"),
       skipped: dryRun || undefined,
     });
   } catch (e) {
@@ -164,6 +168,7 @@ export async function deriveAll(options: DeriveAllOptions): Promise<DerivationRe
         path: filePath,
         written: true,
         customBlocksPreserved,
+        contentHash: crypto.createHash("sha256").update(content).digest("hex"),
       });
     } catch (e) {
       results.push({

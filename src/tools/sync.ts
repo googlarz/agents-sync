@@ -99,7 +99,7 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
       const manifestContent = corpus.manifest.dependencies.join("\n");
       const managed: ManagedFile[] = derivations
         .filter((d) => d.written)
-        .map((d) => ({ tool: d.tool as ManagedFile["tool"], path: d.path, sha256: sha256("") }));
+        .map((d) => ({ tool: d.tool as ManagedFile["tool"], path: d.path, sha256: d.contentHash ?? sha256("") }));
 
       const snapshot = buildSnapshot({
         projectPath,

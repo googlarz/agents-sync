@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { detectDrift, formatDriftReport } from "../../src/snapshot/drift.js";
+import { detectDrift, detectSemanticDrift, formatDriftReport } from "../../src/snapshot/drift.js";
 import { buildSnapshot, sha256 } from "../../src/snapshot/writer.js";
 import type { RawCorpus } from "../../src/scanner/index.js";
 
@@ -107,6 +107,64 @@ describe("drift detection", () => {
     const newDirSignal = report.signals.find((s) => s.message.includes("workers"));
     expect(newDirSignal).toBeDefined();
     expect(newDirSignal?.severity).toBe("HIGH");
+  });
+
+  it("reports MEDIUM when 1-2 dependencies change (not enough for HIGH)", () => {
+    const corpus = makeCorpus({
+      manifest: {
+        language: "typescript",
+        framework: "nextjs",
+        runtime: "node 20",
+        packageManager: "npm",
+        // 4 deps vs snapshot's 3 — diff of 1, triggers MEDIUM not HIGH
+        dependencies: ["next@14", "react@18", "zod@3", "axios@1"],
+        devDependencies: ["typescript@5"],
+        scripts: { dev: "next dev" },
+        projectName: "acme",
+        projectVersion: "1.0.0",
+      },
+    });
+    const originalCorpus = makeCorpus(); // 3 deps
+    const manifestContent = originalCorpus.manifest.dependencies.join("\n") + originalCorpus.manifest.devDependencies.join("\n");
+    const snapshot = buildSnapshot({
+      projectPath: "/tmp/project",
+      manifestContent,
+      structureHash: sha256(originalCorpus.structure.topLevelDirs.join(",")),
+      filesManaged: [],
+      language: "typescript",
+      framework: null,
+      topLevelDirs: originalCorpus.structure.topLevelDirs,
+      dependencyCount: originalCorpus.manifest.dependencies.length,
+      totalFiles: 50,
+    });
+
+    const report = detectDrift(snapshot, corpus);
+    expect(report.maxSeverity).toBe("MEDIUM");
+    expect(report.signals.some((s) => s.severity === "MEDIUM")).toBe(true);
+    expect(report.signals.some((s) => s.severity === "HIGH")).toBe(false);
+  });
+
+  it("semantic MEDIUM upgrades structural LOW to MEDIUM", () => {
+    // Corpus: 1 dep change (LOW structural) + stack contradiction (MEDIUM semantic)
+    const corpus = makeCorpus({
+      manifest: {
+        language: "typescript",
+        framework: "nextjs",
+        runtime: "node 20",
+        packageManager: "npm",
+        // AGENTS.md says "prisma" but manifest now has drizzle-orm → HIGH semantic signal
+        // Dep names must be bare (no version suffix) for set membership to work
+        dependencies: ["next", "react", "zod", "drizzle-orm"],
+        devDependencies: ["typescript"],
+        scripts: {},
+        projectName: "acme",
+        projectVersion: "1.0.0",
+      },
+    });
+
+    const agentsMd = "# AGENTS.md\nWe use prisma for our database layer.\n## Never\n- Never bypass ORM\n";
+    const signals = detectSemanticDrift(agentsMd, corpus);
+    expect(signals.some((s) => s.severity === "MEDIUM" || s.severity === "HIGH")).toBe(true);
   });
 
   it("formatDriftReport produces readable output", () => {

@@ -4,6 +4,23 @@ All notable changes to `@googlarz/agents-sync` are documented here.
 
 ---
 
+## [1.5.2] — 2026-05-20
+
+### Fixed
+- **Validate now correctly detects drift in tool files** — snapshots previously stored `sha256("")` for all tool files, making all hash comparisons false. `init`, `sync`, and `export` now store the actual content hash. The spurious bypass `&& managed.sha256 !== ""` in validate is removed.
+- **`roo` (`.roomodes`) and `aider` (`CONVENTIONS.md`) now validated** — both tools were generated but excluded from `TOOL_PATHS` in validate, so they were never checked.
+- **Semantic drift MEDIUM correctly upgrades LOW structural drift** — previously a MEDIUM semantic signal (e.g. deployment target mismatch) was ignored when structural drift was already `LOW`.
+- **`export` inserts new snapshot entry when tool was never previously tracked** — previously the hash update only mapped existing entries; if the tool wasn't in the snapshot it was silently skipped.
+- **`derivers/index.ts` now exposes `contentHash`** on `DerivationResult` — eliminates the need for callers to re-read written files to get a hash.
+
+### Tests added
+- `tests/unit/validate.test.ts` — 7 tests covering in-sync, drifted, missing, no-snapshot, roo, aider, and report format
+- `tests/unit/status.test.ts` — 6 tests covering all status paths
+- `tests/unit/export.test.ts` — 4 tests covering throws, writes, and snapshot-hash update
+- `tests/unit/drift.test.ts` — 2 new tests: MEDIUM severity path and semantic signal detection
+
+---
+
 ## [1.5.1] — 2026-05-20
 
 ### Fixed

@@ -114,7 +114,7 @@ export async function runInit(options: InitOptions): Promise<InitResult> {
       { tool: "agents-md", path: agentsMdPath, sha256: sha256(agentsMdToWrite) },
       ...derivations
         .filter((d) => d.written && d.tool !== "agents-md")
-        .map((d) => ({ tool: d.tool as ManagedFile["tool"], path: d.path, sha256: sha256("") })),
+        .map((d) => ({ tool: d.tool as ManagedFile["tool"], path: d.path, sha256: d.contentHash ?? sha256("") })),
     ];
 
     const snapshot = buildSnapshot({

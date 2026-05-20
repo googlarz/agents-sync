@@ -45,7 +45,7 @@ export async function runDrift(options: DriftOptions): Promise<DriftToolResult> 
     result.signals.push(...semanticSignals);
     // Recompute maxSeverity after merging
     if (semanticSignals.some((s) => s.severity === "HIGH")) result.maxSeverity = "HIGH";
-    else if (semanticSignals.some((s) => s.severity === "MEDIUM") && result.maxSeverity === "NONE")
+    else if (semanticSignals.some((s) => s.severity === "MEDIUM") && (result.maxSeverity === "NONE" || result.maxSeverity === "LOW"))
       result.maxSeverity = "MEDIUM";
     result.recommendation =
       result.maxSeverity === "HIGH"

@@ -37,6 +37,8 @@ const TOOL_PATHS: Record<string, string> = {
   gemini: "GEMINI.md",
   windsurf: ".windsurfrules",
   cline: ".clinerules",
+  roo: ".roomodes",
+  aider: "CONVENTIONS.md",
 };
 
 function buildReport(
@@ -105,7 +107,7 @@ export async function runValidate(options: ValidateOptions): Promise<ValidateRes
     }
 
     const currentHash = sha256File(currentContent);
-    if (currentHash !== managed.sha256 && managed.sha256 !== "") {
+    if (currentHash !== managed.sha256) {
       toolFiles.push({
         tool: managed.tool,
         path: managed.path,

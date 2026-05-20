@@ -75,13 +75,13 @@ export async function runExport(options: ExportOptions): Promise<ExportResult> {
 
   // Update snapshot hash so validate doesn't flag the re-derived file as drifted
   if (result.written && !result.error) {
-    const updatedSnapshot = { ...snapshot };
     const content = await fs.readFile(result.path, "utf-8").catch(() => "");
     const newHash = sha256(content);
-    updatedSnapshot.filesManaged = snapshot.filesManaged.map((f) =>
-      f.path === result.path ? { ...f, sha256: newHash } : f,
-    );
-    await saveSnapshot(updatedSnapshot);
+    const existing = snapshot.filesManaged.find((f) => f.path === result.path);
+    const updatedManaged = existing
+      ? snapshot.filesManaged.map((f) => f.path === result.path ? { ...f, sha256: newHash } : f)
+      : [...snapshot.filesManaged, { tool: options.tool, path: result.path, sha256: newHash }];
+    await saveSnapshot({ ...snapshot, filesManaged: updatedManaged });
   }
 
   return {
