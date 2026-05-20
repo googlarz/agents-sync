@@ -19,6 +19,10 @@
 [![Codex CLI](https://img.shields.io/badge/Codex_CLI-supported-412991?style=flat-square)](https://github.com/openai/codex)
 [![opencode](https://img.shields.io/badge/opencode-supported-7C3AED?style=flat-square)](https://opencode.ai)
 
+<br/>
+
+![agents-sync demo](docs/demo.gif)
+
 </div>
 
 ---
