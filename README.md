@@ -1,22 +1,25 @@
 # agents-sync
 
-[![npm version](https://img.shields.io/npm/v/@googlarz/agents-sync?style=flat-square)](https://www.npmjs.com/package/@googlarz/agents-sync)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D18-green?style=flat-square)](https://nodejs.org)
-![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white)
-![macOS](https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white)
-![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black)
+**Write your AI context once. Derive it everywhere — automatically.**
 
-[![Claude Code](https://img.shields.io/badge/Claude_Code-✓-orange?style=flat-square)](https://claude.ai/code)
-[![Cursor](https://img.shields.io/badge/Cursor-✓-blue?style=flat-square)](https://cursor.com)
-[![Codex CLI](https://img.shields.io/badge/Codex_CLI-✓-412991?style=flat-square)](https://github.com/openai/codex)
-[![opencode](https://img.shields.io/badge/opencode-✓-8B5CF6?style=flat-square)](https://opencode.ai)
+**9 AI tools supported · 6 commands need no API key · 100% local**
 
-**Write your AI context once. Stay in sync everywhere.**
+[![npm](https://img.shields.io/npm/v/@googlarz/agents-sync?style=flat-square&label=npm)](https://www.npmjs.com/package/@googlarz/agents-sync)
+[![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-18%2B-green?style=flat-square)](https://nodejs.org)
 
-`agents-sync` reads your codebase, generates a canonical `AGENTS.md`, and automatically derives tool-specific files for every AI coding tool you use — Claude Code, Cursor, GitHub Copilot, and more.
+![Windows](https://img.shields.io/badge/Windows-supported-0078D6?style=flat-square)
+![macOS](https://img.shields.io/badge/macOS-supported-555555?style=flat-square)
+![Linux](https://img.shields.io/badge/Linux-supported-1793D1?style=flat-square)
 
-One source of truth. No more manually maintaining eight config files that are always out of sync.
+[![Claude Code](https://img.shields.io/badge/Claude_Code-supported-E8670A?style=flat-square)](https://claude.ai/code)
+[![Cursor](https://img.shields.io/badge/Cursor-supported-4B6EF5?style=flat-square)](https://cursor.com)
+[![Codex CLI](https://img.shields.io/badge/Codex_CLI-supported-412991?style=flat-square)](https://github.com/openai/codex)
+[![opencode](https://img.shields.io/badge/opencode-supported-7C3AED?style=flat-square)](https://opencode.ai)
+
+`agents-sync` reads your codebase, generates a canonical `AGENTS.md`, and automatically derives tool-specific files for every AI coding tool you use.
+
+One source of truth. No more manually maintaining nine config files that are always out of sync.
 
 ---
 
