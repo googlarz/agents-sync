@@ -10,25 +10,20 @@ Set Shell zsh
 Hide
 Type "cd /tmp/demo-app"
 Enter
-Sleep 300ms
+Sleep 500ms
 Show
 
-Type "npx @googlarz/agents-sync scan ."
-Sleep 800ms
+Type "agents-sync scan ."
+Sleep 600ms
 Enter
-Sleep 12s
-
-Type "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY npx @googlarz/agents-sync init ."
-Sleep 800ms
-Enter
-Sleep 40s
+Sleep 4s
 
 Type "ls"
 Sleep 400ms
 Enter
 Sleep 1000ms
 
-Type "head -20 AGENTS.md"
+Type "head -25 AGENTS.md"
 Sleep 400ms
 Enter
-Sleep 1500ms
+Sleep 2000ms
