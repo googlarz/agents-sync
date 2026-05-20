@@ -5,6 +5,7 @@ import { loadSnapshot } from "../snapshot/writer.js";
 
 export interface ValidateOptions {
   projectPath: string;
+  strict?: boolean;
 }
 
 export type FileStatus = "in-sync" | "drifted" | "missing";

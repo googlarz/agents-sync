@@ -55,7 +55,7 @@ COMMANDS
   init [path]               Analyze codebase, generate all context files
   sync [path]               Re-sync after codebase changes
   drift [path]              Check what changed since last sync
-  validate [path]           Check if all files match AGENTS.md
+  validate [path]           Check if all files match AGENTS.md (--strict exits 1 when not in sync)
   scan [path]               Show what agents-sync detected (no API key needed)
   lint [path]               Verify codebase against 'Never' rules in AGENTS.md
   status [path]             Show sync status and managed files
@@ -69,6 +69,7 @@ COMMANDS
 OPTIONS
   --dry-run                 Preview changes without writing files
   --fast                    sync only — skip API call if drift is minor
+  --strict, --ci            validate — exit 1 when any file is out of sync (CI mode)
   --ci                      drift/lint — exit 1 when drift is HIGH or lint has violations
   --husky                   install-hook — force husky hook manager
   --lefthook                install-hook — force lefthook hook manager
@@ -205,9 +206,10 @@ async function runCli(): Promise<void> {
     case "validate": {
       const { runValidate } = await import("./tools/validate.js");
       const projectPath = resolvePath(positional[1]);
-      const result = await runValidate({ projectPath });
+      const strict = hasFlag("--strict", "--ci");
+      const result = await runValidate({ projectPath, strict });
       process.stdout.write(result.report + "\n");
-      if (!result.allInSync) process.exit(1);
+      if (strict && !result.allInSync) process.exit(1);
       break;
     }
 

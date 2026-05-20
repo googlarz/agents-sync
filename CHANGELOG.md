@@ -1,0 +1,71 @@
+# Changelog
+
+All notable changes to `@googlarz/agents-sync` are documented here.
+
+---
+
+## [1.5.0] — 2026-05-20
+
+### Added
+- `agents-sync install-hook .` — installs a pre-commit hook that blocks commits when AI context files have drifted from `AGENTS.md`
+  - Auto-detects **husky**, **lefthook**, or plain **git hooks**
+  - `--husky`, `--lefthook`, `--git` flags to force a specific manager
+  - `--dry-run` previews changes without writing
+  - Idempotent — safe to re-run
+- `agents_sync_install_hook` MCP tool
+- `validate --strict` / `validate --ci` — exits 1 when any file is out of sync (CI gate)
+- `agents_sync_validate` MCP tool now accepts `strict` parameter
+
+---
+
+## [1.4.0] — 2026-05-20
+
+### Added
+- `agents-sync scan .` — scans codebase with no API key, prints detected language, framework, dependencies, MCP servers, local skills, and gotchas
+- `agents_sync_scan` MCP tool
+- When `ANTHROPIC_API_KEY` is missing, `init`/`sync` now run `scan` first and show what was detected before explaining setup
+- Roo Code (`.roomodes`) and Aider (`CONVENTIONS.md`) as derived tool targets (now 9 AI tools total)
+- Project-local skill scanner: detects `.claude/commands/` and `.claude/skills/`
+
+---
+
+## [1.3.0] — 2026-05-20
+
+### Added
+- MCP server detection from `.claude/settings.json` and `.claude/settings.local.json`
+- Detected servers documented in generated `AGENTS.md` and `CLAUDE.md`
+- Stack-aware Claude Code skill recommendations in `CLAUDE.md` (e.g. suggests `test-driven-development` for Vitest projects)
+
+---
+
+## [1.2.0] — 2026-05-20
+
+### Added
+- Roo Code (`.roomodes`) as a derived tool target
+- Aider (`CONVENTIONS.md`) as a derived tool target
+- Project-local skill scanner: detects `.claude/commands/` and `.claude/skills/` and surfaces them in the generated `CLAUDE.md`
+
+---
+
+## [1.1.0] — 2026-05-20
+
+### Added
+- `agents-sync lint` — checks codebase against every mechanically-verifiable `Never` rule in `AGENTS.md`
+- Returns violations with file and line number
+- `--ci` flag exits 1 for use in CI pipelines
+- `agents_sync_lint` MCP tool
+- Semantic drift detection: compares AGENTS.md stack claims against actual manifests
+
+---
+
+## [1.0.0] — 2026-05-20
+
+### Added
+- Core pipeline: scan → Claude API extraction → canonical `AGENTS.md` → derive tool files
+- Supported tools: Claude Code (`CLAUDE.md`), Cursor (`.cursorrules`), GitHub Copilot (`copilot-instructions.md`), Gemini CLI (`GEMINI.md`), Windsurf (`.windsurfrules`), Cline (`.clinerules`)
+- MCP server with `init`, `sync`, `drift`, `export`, `validate`, `status` tools
+- CLI with all commands + `--dry-run`, `--fast`, `--ci`, `--tools` flags
+- Custom section preservation — manual additions survive every resync
+- Drift detection with snapshot-based comparison
+- `--repomix-output` flag to use repomix XML as source corpus
+- GitHub Action workflow (`docs/github-action.yml`)

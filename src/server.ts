@@ -178,13 +178,14 @@ server.tool(
 
 server.tool(
   "agents_sync_validate",
-  "Check whether all tool files are in sync with the canonical AGENTS.md.",
+  "Check whether all tool files are in sync with the canonical AGENTS.md. Use strict=true in CI to fail when any file is out of sync.",
   {
     projectPath: z.string().describe("Absolute path to the project root directory"),
+    strict: z.boolean().optional().describe("Exit with isError=true when any file is out of sync (CI mode)."),
   },
-  async ({ projectPath }) => {
+  async ({ projectPath, strict }) => {
     try {
-      const result = await runValidate({ projectPath });
+      const result = await runValidate({ projectPath, strict });
       const lines: string[] = [];
 
       const canonicalStatus = result.canonical.exists ? "✓" : "✗ MISSING";
@@ -209,7 +210,10 @@ server.tool(
         lines.push("\nNote: No snapshot found — run /agents-sync init for full tracking.");
       }
 
-      return { content: [{ type: "text" as const, text: lines.join("\n") }] };
+      return {
+        content: [{ type: "text" as const, text: lines.join("\n") }],
+        isError: strict && !result.allInSync ? true : undefined,
+      };
     } catch (e) {
       return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
     }
