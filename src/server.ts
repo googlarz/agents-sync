@@ -12,7 +12,7 @@ import { runLint } from "./tools/lint.js";
 import { runScanReport } from "./tools/scan-report.js";
 import { runInstallHook, runUninstallHook } from "./tools/install-hook.js";
 
-const VERSION = "1.5.4";
+const VERSION = "1.5.5";
 
 const server = new McpServer({
   name: "agents-sync",

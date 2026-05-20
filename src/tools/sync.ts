@@ -11,6 +11,7 @@ import { buildSnapshot, loadSnapshot, saveSnapshot, sha256 } from "../snapshot/w
 import { detectDrift } from "../snapshot/drift.js";
 import type { ManagedFile } from "../snapshot/schema.js";
 import { loadConfig, applyConfig } from "../config/loader.js";
+import { withSpinner } from "../lib/spinner.js";
 
 export interface SyncOptions {
   projectPath: string;
@@ -71,8 +72,7 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
     agentsMd = existing;
   } else {
     // Full re-extraction
-    process.stderr.write("agents-sync: extracting with Claude…\n");
-    const rawMetadata = await extractMetadata(corpus);
+    const rawMetadata = await withSpinner("extracting with Claude…", () => extractMetadata(corpus));
     const metadata = applyConfig(rawMetadata, config);
     agentsMd = appendMcpSection(await generateAgentsMd(metadata), corpus.mcp);
     const validation = validateAgentsMd(agentsMd, corpus.structure.topLevelDirs);

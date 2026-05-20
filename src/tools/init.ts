@@ -9,6 +9,7 @@ import { buildSnapshot, saveSnapshot, sha256 } from "../snapshot/writer.js";
 import type { ManagedFile } from "../snapshot/schema.js";
 import { isManagedByAgentsSync, injectCustomBlocks } from "../derivers/merger.js";
 import { loadConfig, applyConfig } from "../config/loader.js";
+import { withSpinner } from "../lib/spinner.js";
 
 export interface InitOptions {
   projectPath: string;
@@ -43,8 +44,7 @@ export async function runInit(options: InitOptions): Promise<InitResult> {
   const config = await loadConfig(projectPath);
 
   // 3. Extract metadata and merge config overrides
-  process.stderr.write("agents-sync: extracting with Claude…\n");
-  const rawMetadata = await extractMetadata(corpus);
+  const rawMetadata = await withSpinner("extracting with Claude…", () => extractMetadata(corpus));
   const metadata = applyConfig(rawMetadata, config);
 
   // 4. Resolve effective tool list: CLI flag > config > default (all)

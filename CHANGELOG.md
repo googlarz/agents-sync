@@ -4,6 +4,14 @@ All notable changes to `@googlarz/agents-sync` are documented here.
 
 ---
 
+## [1.5.5] — 2026-05-20
+
+### Added
+- **Spinner during extraction** — "extracting with Claude…" now shows a cycling spinner in TTY environments instead of hanging silently for 15-30s; falls back to a plain log line in CI/pipes
+- **`AGENTS_SYNC_MODEL` env var** — override the Claude model used for extraction (e.g. `AGENTS_SYNC_MODEL=claude-haiku-4-5-20251001` for faster/cheaper runs)
+
+---
+
 ## [1.5.4] — 2026-05-20
 
 ### Tests added
