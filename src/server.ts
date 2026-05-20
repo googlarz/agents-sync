@@ -1,0 +1,255 @@
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+import { toMcpError } from "./lib/errors.js";
+import { runInit } from "./tools/init.js";
+import { runSync } from "./tools/sync.js";
+import { runDrift } from "./tools/drift.js";
+import { runExport } from "./tools/export.js";
+import { runValidate } from "./tools/validate.js";
+import { runStatus } from "./tools/status.js";
+
+const VERSION = "1.0.0";
+
+const server = new McpServer({
+  name: "agents-sync",
+  version: VERSION,
+});
+
+// ─── agents_sync_init ────────────────────────────────────────────────────────
+
+server.tool(
+  "agents_sync_init",
+  "Analyze a codebase and generate AGENTS.md + all tool-specific context files (CLAUDE.md, .cursorrules, copilot-instructions.md). Run this once per project.",
+  {
+    projectPath: z.string().describe("Absolute path to the project root directory"),
+    tools: z
+      .array(z.enum(["claude", "cursor", "copilot"]))
+      .optional()
+      .describe("Which tool files to generate. Default: all three."),
+    dryRun: z
+      .boolean()
+      .optional()
+      .describe("Preview what would be generated without writing any files."),
+  },
+  async ({ projectPath, tools, dryRun }) => {
+    try {
+      const result = await runInit({ projectPath, tools, dryRun });
+      const lines: string[] = [];
+
+      if (result.dryRun) {
+        lines.push("DRY RUN — no files written\n");
+      }
+
+      lines.push(`✓ AGENTS.md → ${result.agentsMdPath}`);
+      for (const f of result.filesWritten) {
+        lines.push(`✓ ${f.tool} → ${f.path}`);
+      }
+      if (result.customSectionsPreserved > 0) {
+        lines.push(`\n  ${result.customSectionsPreserved} custom section(s) preserved from existing files`);
+      }
+      if (result.warnings.length > 0) {
+        lines.push("\nWarnings:");
+        for (const w of result.warnings) lines.push(`  ⚠ ${w}`);
+      }
+      if (!result.dryRun) {
+        lines.push("\n✓ Snapshot saved to .agents-sync/");
+        lines.push("  → Add AGENTS.md to git. Add .agents-sync/ to .gitignore.");
+      }
+
+      return { content: [{ type: "text" as const, text: lines.join("\n") }] };
+    } catch (e) {
+      return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
+    }
+  },
+);
+
+// ─── agents_sync_sync ────────────────────────────────────────────────────────
+
+server.tool(
+  "agents_sync_sync",
+  "Re-analyze the codebase and update all tool context files from current state. Preserves manual custom sections.",
+  {
+    projectPath: z.string().describe("Absolute path to the project root directory"),
+    tools: z
+      .array(z.enum(["claude", "cursor", "copilot"]))
+      .optional()
+      .describe("Which tool files to update. Default: all."),
+    fast: z
+      .boolean()
+      .optional()
+      .describe("Skip re-extraction if only minor drift detected. No Claude API call."),
+    dryRun: z.boolean().optional().describe("Preview changes without writing."),
+  },
+  async ({ projectPath, tools, fast, dryRun }) => {
+    try {
+      const result = await runSync({ projectPath, tools, fast, dryRun });
+      const lines: string[] = [];
+
+      if (result.dryRun) lines.push("DRY RUN — no files written\n");
+      if (result.skippedExtraction) lines.push("⚡ Fast mode: skipped re-extraction\n");
+
+      for (const f of result.filesUpdated) lines.push(`✓ ${f.tool} → ${f.path}`);
+
+      if (result.customSectionsPreserved > 0) {
+        lines.push(`\n  ${result.customSectionsPreserved} custom section(s) preserved`);
+      }
+      if (result.warnings.length > 0) {
+        lines.push("\nWarnings:");
+        for (const w of result.warnings) lines.push(`  ⚠ ${w}`);
+      }
+
+      return { content: [{ type: "text" as const, text: lines.join("\n") }] };
+    } catch (e) {
+      return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
+    }
+  },
+);
+
+// ─── agents_sync_drift ───────────────────────────────────────────────────────
+
+server.tool(
+  "agents_sync_drift",
+  "Check what has changed in the codebase since the last sync. Read-only — makes no changes.",
+  {
+    projectPath: z.string().describe("Absolute path to the project root directory"),
+  },
+  async ({ projectPath }) => {
+    try {
+      const result = await runDrift({ projectPath });
+
+      if (!result.hasSnapshot) {
+        return {
+          content: [{
+            type: "text" as const,
+            text: "No snapshot found. Run /agents-sync init first to start tracking drift.",
+          }],
+        };
+      }
+
+      return { content: [{ type: "text" as const, text: result.report ?? "No report available." }] };
+    } catch (e) {
+      return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
+    }
+  },
+);
+
+// ─── agents_sync_export ──────────────────────────────────────────────────────
+
+server.tool(
+  "agents_sync_export",
+  "Regenerate a single tool file from the existing AGENTS.md without re-running analysis.",
+  {
+    projectPath: z.string().describe("Absolute path to the project root directory"),
+    tool: z
+      .enum(["claude", "cursor", "copilot"])
+      .describe("Which tool file to regenerate"),
+  },
+  async ({ projectPath, tool }) => {
+    try {
+      const result = await runExport({ projectPath, tool });
+
+      if (result.error) {
+        return { content: [{ type: "text" as const, text: `Error: ${result.error}` }], isError: true };
+      }
+
+      return {
+        content: [{
+          type: "text" as const,
+          text: `✓ ${result.tool} → ${result.path}`,
+        }],
+      };
+    } catch (e) {
+      return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
+    }
+  },
+);
+
+// ─── agents_sync_validate ────────────────────────────────────────────────────
+
+server.tool(
+  "agents_sync_validate",
+  "Check whether all tool files are in sync with the canonical AGENTS.md.",
+  {
+    projectPath: z.string().describe("Absolute path to the project root directory"),
+  },
+  async ({ projectPath }) => {
+    try {
+      const result = await runValidate({ projectPath });
+      const lines: string[] = [];
+
+      const canonicalStatus = result.canonical.exists ? "✓" : "✗ MISSING";
+      lines.push(`AGENTS.md (canonical)  ${canonicalStatus}`);
+      lines.push("");
+
+      for (const f of result.toolFiles) {
+        const icon = f.status === "in-sync" ? "✓" : f.status === "missing" ? "✗" : "⚠";
+        const label = f.status === "in-sync" ? "in sync" : f.status === "missing" ? "MISSING" : "DRIFTED";
+        lines.push(`${icon} ${f.tool.padEnd(10)} ${label}  ${f.path}`);
+        if (f.details) lines.push(`           ${f.details}`);
+      }
+
+      lines.push("");
+      if (result.allInSync) {
+        lines.push("✓ All files are in sync.");
+      } else {
+        lines.push("Some files are out of sync. Run /agents-sync sync to fix.");
+      }
+
+      if (!result.hasSnapshot) {
+        lines.push("\nNote: No snapshot found — run /agents-sync init for full tracking.");
+      }
+
+      return { content: [{ type: "text" as const, text: lines.join("\n") }] };
+    } catch (e) {
+      return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
+    }
+  },
+);
+
+// ─── agents_sync_status ──────────────────────────────────────────────────────
+
+server.tool(
+  "agents_sync_status",
+  "Show sync status: last sync time, managed files, drift score.",
+  {
+    projectPath: z.string().describe("Absolute path to the project root directory"),
+  },
+  async ({ projectPath }) => {
+    try {
+      const result = await runStatus({ projectPath });
+      const lines: string[] = ["agents-sync status\n"];
+
+      if (!result.hasSnapshot) {
+        lines.push("Not initialized.");
+        lines.push(`\n→ ${result.recommendation}`);
+      } else {
+        lines.push(`Last synced:  ${result.lastSyncedAt ?? "unknown"} (${result.daysSinceSync} day${result.daysSinceSync === 1 ? "" : "s"} ago)`);
+        lines.push(`Language:     ${result.language ?? "unknown"}${result.framework ? ` / ${result.framework}` : ""}`);
+        lines.push(`Drift score:  ${result.driftScore}`);
+        lines.push(`\nManaged files (${result.filesManaged.length}):`);
+        for (const f of result.filesManaged) {
+          lines.push(`  ${f.tool.padEnd(12)} ${f.path}`);
+        }
+        lines.push(`\n→ ${result.recommendation}`);
+      }
+
+      return { content: [{ type: "text" as const, text: lines.join("\n") }] };
+    } catch (e) {
+      return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
+    }
+  },
+);
+
+// ─── Start ───────────────────────────────────────────────────────────────────
+
+async function main() {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  process.stderr.write(`agents-sync MCP server v${VERSION} ready\n`);
+}
+
+main().catch((e) => {
+  process.stderr.write(`Fatal: ${e}\n`);
+  process.exit(1);
+});

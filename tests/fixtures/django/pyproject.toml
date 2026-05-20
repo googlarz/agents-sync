@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "inventory-api"
+version = "1.2.0"
+description = "Inventory management REST API"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+django = "^4.2"
+djangorestframework = "^3.15"
+psycopg2-binary = "^2.9"
+celery = "^5.3"
+redis = "^5.0"
+pytest-django = "^4.8"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "inventory.settings"

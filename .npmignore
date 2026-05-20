@@ -1,0 +1,9 @@
+src/
+tests/
+*.test.ts
+tsconfig.json
+vitest.config.ts
+eslint.config.js
+.github/
+.agents-sync/
+*.map
