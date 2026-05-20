@@ -58,7 +58,7 @@ COMMANDS
   lint [path]               Verify codebase against 'Never' rules in AGENTS.md
   status [path]             Show sync status and managed files
   export <tool> [path]      Re-derive a single tool file (no API call)
-                            Tools: claude, cursor, copilot, gemini, windsurf, cline
+                            Tools: claude, cursor, copilot, gemini, windsurf, cline, roo, aider
 
   (no command)              Start MCP server (stdio transport)
 
@@ -67,7 +67,7 @@ OPTIONS
   --fast                    sync only — skip API call if drift is minor
   --ci                      drift/lint — exit 1 when drift is HIGH or lint has violations
   --tools <list>            Comma-separated tools to generate (init/sync)
-                            e.g. --tools claude,cursor,copilot
+                            e.g. --tools claude,cursor,roo,aider
   --repomix-output <file>   Use repomix XML/text output as source corpus
                             (init/sync) instead of filesystem sampling
   --version, -v             Print version
@@ -224,7 +224,7 @@ async function runCli(): Promise<void> {
       const { runExport } = await import("./tools/export.js");
       const tool = positional[1];
       const projectPath = resolvePath(positional[2]);
-      if (!tool) die("export requires a tool name: claude, cursor, copilot, gemini, windsurf, cline");
+      if (!tool) die("export requires a tool name: claude, cursor, copilot, gemini, windsurf, cline, roo, aider");
       const result = await runExport({ projectPath, tool: tool as Parameters<typeof runExport>[0]["tool"] });
       process.stdout.write(result.report + "\n");
       break;

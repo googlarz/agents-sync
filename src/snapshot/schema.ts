@@ -3,7 +3,7 @@ import { z } from "zod";
 export const ManagedFileSchema = z.object({
   path: z.string(),
   sha256: z.string(),
-  tool: z.enum(["agents-md", "claude", "cursor", "copilot", "gemini", "windsurf", "cline"]),
+  tool: z.enum(["agents-md", "claude", "cursor", "copilot", "gemini", "windsurf", "cline", "roo", "aider"]),
 });
 
 export const SnapshotSchema = z.object({

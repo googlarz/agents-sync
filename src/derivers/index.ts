@@ -9,8 +9,10 @@ import { deriveCopilotInstructions } from "./copilot.js";
 import { deriveGeminiMd } from "./gemini.js";
 import { deriveWindsurfRules } from "./windsurf.js";
 import { deriveClineRules } from "./cline.js";
+import { deriveRooModes } from "./roo.js";
+import { deriveAiderConventions } from "./aider.js";
 
-export type ToolName = "claude" | "cursor" | "copilot" | "gemini" | "windsurf" | "cline";
+export type ToolName = "claude" | "cursor" | "copilot" | "gemini" | "windsurf" | "cline" | "roo" | "aider";
 
 export interface DerivationResult {
   tool: ToolName | "agents-md";
@@ -34,7 +36,7 @@ export interface DeriveAllOptions {
   preserveCustom?: boolean;
 }
 
-export const ALL_TOOLS: ToolName[] = ["claude", "cursor", "copilot", "gemini", "windsurf", "cline"];
+export const ALL_TOOLS: ToolName[] = ["claude", "cursor", "copilot", "gemini", "windsurf", "cline", "roo", "aider"];
 
 // ---------------------------------------------------------------------------
 // Tool → file-path mapping
@@ -54,6 +56,10 @@ export function toolPath(projectPath: string, tool: ToolName): string {
       return path.join(projectPath, ".windsurfrules");
     case "cline":
       return path.join(projectPath, ".clinerules");
+    case "roo":
+      return path.join(projectPath, ".roomodes");
+    case "aider":
+      return path.join(projectPath, "CONVENTIONS.md");
   }
 }
 
@@ -81,6 +87,10 @@ async function deriveContent(
       return deriveWindsurfRules(shared);
     case "cline":
       return deriveClineRules(shared);
+    case "roo":
+      return deriveRooModes(shared);
+    case "aider":
+      return deriveAiderConventions(shared);
   }
 }
 

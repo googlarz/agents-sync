@@ -1,6 +1,7 @@
 import path from "node:path";
 import type { ProjectMetadata } from "../extractor/schema.js";
 import { injectCustomBlocks, loadExistingCustomBlocks, loadUnmanagedFileAsCustomBlock } from "./merger.js";
+import { scanProjectSkills, formatSkillsSection } from "../scanner/skills.js";
 
 export interface ClaudeDerivationOptions {
   projectPath: string;
@@ -38,7 +39,11 @@ Run \`/agents-sync drift\` to check what's changed since last sync.
 export async function deriveClaudeMd(options: ClaudeDerivationOptions): Promise<string> {
   const { projectPath, agentsMdContent, preserveCustom = true } = options;
 
-  const generated = `${agentsMdContent.trimEnd()}\n\n${CLAUDE_CODE_SECTION}`;
+  const skillsSummary = await scanProjectSkills(projectPath);
+  const skillsSection = formatSkillsSection(skillsSummary);
+  const skillsBlock = skillsSection ? `\n${skillsSection}\n` : "";
+
+  const generated = `${agentsMdContent.trimEnd()}${skillsBlock}\n${CLAUDE_CODE_SECTION}`;
 
   if (!preserveCustom) return generated;
 

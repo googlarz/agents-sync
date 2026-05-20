@@ -10,7 +10,7 @@ import { runValidate } from "./tools/validate.js";
 import { runStatus } from "./tools/status.js";
 import { runLint } from "./tools/lint.js";
 
-const VERSION = "1.1.0";
+const VERSION = "1.2.0";
 
 const server = new McpServer({
   name: "agents-sync",
@@ -25,7 +25,7 @@ server.tool(
   {
     projectPath: z.string().describe("Absolute path to the project root directory"),
     tools: z
-      .array(z.enum(["claude", "cursor", "copilot", "gemini", "windsurf", "cline"]))
+      .array(z.enum(["claude", "cursor", "copilot", "gemini", "windsurf", "cline", "roo", "aider"]))
       .optional()
       .describe("Which tool files to generate. Default: all six."),
     dryRun: z
@@ -77,7 +77,7 @@ server.tool(
   {
     projectPath: z.string().describe("Absolute path to the project root directory"),
     tools: z
-      .array(z.enum(["claude", "cursor", "copilot", "gemini", "windsurf", "cline"]))
+      .array(z.enum(["claude", "cursor", "copilot", "gemini", "windsurf", "cline", "roo", "aider"]))
       .optional()
       .describe("Which tool files to update. Default: all."),
     fast: z
@@ -149,7 +149,7 @@ server.tool(
   {
     projectPath: z.string().describe("Absolute path to the project root directory"),
     tool: z
-      .enum(["claude", "cursor", "copilot", "gemini", "windsurf", "cline"])
+      .enum(["claude", "cursor", "copilot", "gemini", "windsurf", "cline", "roo", "aider"])
       .describe("Which tool file to regenerate"),
   },
   async ({ projectPath, tool }) => {
