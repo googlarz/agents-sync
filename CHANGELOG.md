@@ -4,6 +4,13 @@ All notable changes to `@googlarz/agents-sync` are documented here.
 
 ---
 
+## [1.5.4] — 2026-05-20
+
+### Tests added
+- `tests/unit/scanner/manifest.test.ts` — 4 new tests covering Maven (pom.xml), Gradle (build.gradle), Ruby (Gemfile), and PHP (composer.json) parsers added in v1.5.3
+
+---
+
 ## [1.5.3] — 2026-05-20
 
 ### Fixed
