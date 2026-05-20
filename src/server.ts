@@ -12,7 +12,7 @@ import { runLint } from "./tools/lint.js";
 import { runScanReport } from "./tools/scan-report.js";
 import { runInstallHook, runUninstallHook } from "./tools/install-hook.js";
 
-const VERSION = "1.5.2";
+const VERSION = "1.5.3";
 
 const server = new McpServer({
   name: "agents-sync",
@@ -122,8 +122,9 @@ server.tool(
   "Check what has changed in the codebase since the last sync. Read-only — makes no changes.",
   {
     projectPath: z.string().describe("Absolute path to the project root directory"),
+    ci: z.boolean().optional().describe("Return isError when drift is HIGH (for CI/pre-commit use)."),
   },
-  async ({ projectPath }) => {
+  async ({ projectPath, ci }) => {
     try {
       const result = await runDrift({ projectPath });
 
@@ -136,7 +137,11 @@ server.tool(
         };
       }
 
-      return { content: [{ type: "text" as const, text: result.report ?? "No report available." }] };
+      const text = result.report ?? "No report available.";
+      if (ci && result.highDrift) {
+        return { content: [{ type: "text" as const, text }], isError: true };
+      }
+      return { content: [{ type: "text" as const, text }] };
     } catch (e) {
       return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
     }

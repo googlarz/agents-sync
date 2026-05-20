@@ -28,6 +28,25 @@ export interface InstallHookResult {
 const DRIFT_COMMAND = "npx @googlarz/agents-sync drift . --ci";
 const FAIL_MESSAGE = "AI context files are out of sync. Run: npx @googlarz/agents-sync sync .";
 
+const SENTINEL_BEGIN = "# BEGIN agents-sync";
+const SENTINEL_END = "# END agents-sync";
+
+function wrapWithSentinels(lines: string): string {
+  return `${SENTINEL_BEGIN}\n${lines}\n${SENTINEL_END}`;
+}
+
+function removeSentinelBlock(content: string): { found: boolean; cleaned: string } {
+  const beginIdx = content.indexOf(SENTINEL_BEGIN);
+  const endIdx = content.indexOf(SENTINEL_END);
+  if (beginIdx === -1 || endIdx === -1 || endIdx < beginIdx) {
+    return { found: false, cleaned: content };
+  }
+  const before = content.slice(0, beginIdx);
+  const after = content.slice(endIdx + SENTINEL_END.length);
+  const cleaned = (before + after).replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
+  return { found: true, cleaned };
+}
+
 async function detectManager(projectPath: string): Promise<HookManager> {
   // Check for husky
   const huskyDir = path.join(projectPath, ".husky");
@@ -59,23 +78,22 @@ async function installHusky(projectPath: string, dryRun: boolean): Promise<{ fil
   const huskyDir = path.join(projectPath, ".husky");
   const hookFile = path.join(huskyDir, "pre-commit");
 
-  const hookContent = `${DRIFT_COMMAND}\n`;
+  const block = wrapWithSentinels(DRIFT_COMMAND);
 
   if (await fileExists(hookFile)) {
     const existing = await fs.readFile(hookFile, "utf8");
     if (existing.includes("agents-sync")) {
       return { files: [], alreadyInstalled: true };
     }
-    // Append to existing hook
     if (!dryRun) {
-      await fs.appendFile(hookFile, `\n${hookContent}`);
+      await fs.appendFile(hookFile, `\n\n${block}\n`);
     }
     return { files: [hookFile], alreadyInstalled: false };
   }
 
   if (!dryRun) {
     await fs.mkdir(huskyDir, { recursive: true });
-    await fs.writeFile(hookFile, `#!/usr/bin/env sh\n. "$(dirname -- "$0")/_/husky.sh"\n\n${hookContent}`);
+    await fs.writeFile(hookFile, `#!/usr/bin/env sh\n. "$(dirname -- "$0")/_/husky.sh"\n\n${block}\n`);
     await fs.chmod(hookFile, 0o755);
   }
   return { files: [hookFile], alreadyInstalled: false };
@@ -119,15 +137,14 @@ async function installGitHook(projectPath: string, dryRun: boolean): Promise<{ f
   const hooksDir = path.join(gitDir, "hooks");
   const hookFile = path.join(hooksDir, "pre-commit");
 
-  const hookContent = [
-    "#!/usr/bin/env sh",
+  const driftBlock = [
     `${DRIFT_COMMAND}`,
     `if [ $? -ne 0 ]; then`,
     `  echo "${FAIL_MESSAGE}"`,
     `  exit 1`,
     `fi`,
-    "",
   ].join("\n");
+  const block = wrapWithSentinels(driftBlock);
 
   if (await fileExists(hookFile)) {
     const existing = await fs.readFile(hookFile, "utf8");
@@ -135,14 +152,14 @@ async function installGitHook(projectPath: string, dryRun: boolean): Promise<{ f
       return { files: [], alreadyInstalled: true };
     }
     if (!dryRun) {
-      await fs.appendFile(hookFile, `\n${DRIFT_COMMAND}\n`);
+      await fs.appendFile(hookFile, `\n\n${block}\n`);
     }
     return { files: [hookFile], alreadyInstalled: false };
   }
 
   if (!dryRun) {
     await fs.mkdir(hooksDir, { recursive: true });
-    await fs.writeFile(hookFile, hookContent);
+    await fs.writeFile(hookFile, `#!/usr/bin/env sh\n\n${block}\n`);
     await fs.chmod(hookFile, 0o755);
   }
   return { files: [hookFile], alreadyInstalled: false };
@@ -166,10 +183,18 @@ async function removeAgentsSyncFromFile(filePath: string, dryRun: boolean): Prom
   const content = await fs.readFile(filePath, "utf-8").catch(() => null);
   if (!content || !content.includes("agents-sync")) return false;
 
+  // Prefer sentinel-block removal (safe for shell files with unrelated content)
+  const { found, cleaned: sentinelCleaned } = removeSentinelBlock(content);
+  if (found) {
+    if (!dryRun) await fs.writeFile(filePath, sentinelCleaned, "utf-8");
+    return true;
+  }
+
+  // Fallback: line-based filter for older installs and lefthook YAML
+  // (lefthook key names contain "agents-sync" uniquely, so this is safe)
   const lines = content.split("\n");
   const filtered = lines.filter((l) => !l.includes("agents-sync") && !l.includes(FAIL_MESSAGE));
   const cleaned = filtered.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
-
   if (!dryRun) await fs.writeFile(filePath, cleaned, "utf-8");
   return true;
 }

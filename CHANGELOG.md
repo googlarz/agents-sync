@@ -4,6 +4,23 @@ All notable changes to `@googlarz/agents-sync` are documented here.
 
 ---
 
+## [1.5.3] — 2026-05-20
+
+### Fixed
+- **Config schema now includes `roo` and `aider`** — `agents-sync.config.json` previously rejected these tools with a cryptic Zod parse error.
+- **`uninstall-hook` uses sentinel blocks** — the previous line-filter approach could destroy unrelated hook content. All installs now wrap the drift check in `# BEGIN agents-sync` / `# END agents-sync` sentinels; uninstall removes only that block, leaving the rest of the hook file intact. Line-filter fallback retained for older installs and lefthook YAML.
+- **`status` detects when AGENTS.md has been edited** — `driftScore` is now `"modified"` when the AGENTS.md hash differs from the snapshot, giving an actionable signal without a full codebase scan.
+- **`agents_sync_drift` MCP tool supports `ci` param** — pass `ci: true` to get `isError: true` in the response when drift is HIGH, enabling programmatic pre-commit blocking via MCP.
+- **`export --dry-run` now honoured** — the `--dry-run` flag was parsed by the CLI but not forwarded to `runExport`; the tool always wrote files regardless of the flag.
+- **`lint` report now includes skipped rule count** — reports how many rules could not be checked mechanically so users know to review them manually.
+- **Java (Maven/Gradle), Ruby, and PHP manifest parsing** — `scanManifest` now parses `pom.xml`, `build.gradle`/`build.gradle.kts`, `Gemfile`, and `composer.json`.
+
+### Tests added
+- `tests/unit/sync.test.ts` — fast-mode logic and error path tests
+- `tests/unit/scan-report.test.ts` — report structure and language detection tests
+
+---
+
 ## [1.5.2] — 2026-05-20
 
 ### Fixed

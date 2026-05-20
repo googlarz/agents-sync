@@ -300,10 +300,18 @@ function buildReport(checks: LintCheck[], totalViolations: number): string {
     lines.push("");
   }
 
+  const skipped = checks.filter((ch) => !ch.checkable).length;
+  const checked = checks.length - skipped;
+
   if (totalViolations === 0) {
     lines.push(c("32;1", "✓  No violations found."));
   } else {
     lines.push(c("31;1", `${totalViolations} violation${totalViolations === 1 ? "" : "s"} found.`));
+  }
+  if (skipped > 0) {
+    lines.push(c("2", `\n${skipped} of ${checks.length} rule${checks.length === 1 ? "" : "s"} could not be checked mechanically (grep-level checks only). Review those manually.`));
+  } else if (checked > 0) {
+    lines.push(c("2", `\n${checked} rule${checked === 1 ? "" : "s"} checked.`));
   }
 
   return lines.join("\n");

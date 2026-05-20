@@ -262,7 +262,7 @@ async function runCli(): Promise<void> {
       const tool = positional[1];
       const projectPath = resolvePath(positional[2]);
       if (!tool) die("export requires a tool name: claude, cursor, copilot, gemini, windsurf, cline, roo, aider");
-      const result = await runExport({ projectPath, tool: tool as Parameters<typeof runExport>[0]["tool"] });
+      const result = await runExport({ projectPath, tool: tool as Parameters<typeof runExport>[0]["tool"], dryRun });
       process.stdout.write(result.report + "\n");
       break;
     }

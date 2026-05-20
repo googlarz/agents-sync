@@ -270,13 +270,169 @@ async function fromGoMod(projectPath: string): Promise<ManifestData | null> {
   }
 }
 
+async function fromPomXml(projectPath: string): Promise<ManifestData | null> {
+  const raw = await readFileSafe(path.join(projectPath, "pom.xml"));
+  if (!raw) return null;
+
+  try {
+    const nameMatch = /<artifactId>([^<]+)<\/artifactId>/.exec(raw);
+    const versionMatch = /<version>([^<]+)<\/version>/.exec(raw);
+    const javaVersionMatch = /<java\.version>([^<]+)<\/java\.version>/.exec(raw) ??
+      /<maven\.compiler\.source>([^<]+)<\/maven\.compiler\.source>/.exec(raw);
+    const runtime = javaVersionMatch ? `java ${javaVersionMatch[1]}` : null;
+
+    const deps: string[] = [];
+    const depRegex = /<dependency>[\s\S]*?<groupId>([^<]+)<\/groupId>[\s\S]*?<artifactId>([^<]+)<\/artifactId>[\s\S]*?<\/dependency>/g;
+    let m: RegExpExecArray | null;
+    while ((m = depRegex.exec(raw)) !== null && deps.length < 25) {
+      deps.push(`${m[1]}:${m[2]}`);
+    }
+
+    let framework: string | null = null;
+    const rawLower = raw.toLowerCase();
+    if (rawLower.includes("spring-boot")) framework = "spring-boot";
+    else if (rawLower.includes("quarkus")) framework = "quarkus";
+    else if (rawLower.includes("micronaut")) framework = "micronaut";
+
+    return {
+      language: "java",
+      framework,
+      runtime,
+      packageManager: "maven",
+      dependencies: deps,
+      devDependencies: [],
+      scripts: {},
+      projectName: nameMatch ? nameMatch[1] : null,
+      projectVersion: versionMatch ? versionMatch[1] : null,
+    };
+  } catch {
+    return { ...EMPTY, language: "java" };
+  }
+}
+
+async function fromBuildGradle(projectPath: string): Promise<ManifestData | null> {
+  const raw = await readFileSafe(path.join(projectPath, "build.gradle")) ??
+    await readFileSafe(path.join(projectPath, "build.gradle.kts"));
+  if (!raw) return null;
+
+  try {
+    const deps: string[] = [];
+    const depRegex = /(?:implementation|api|compile|runtimeOnly|testImplementation)[^\n]*?["']([^"':]+:[^"']+)["']/g;
+    let m: RegExpExecArray | null;
+    while ((m = depRegex.exec(raw)) !== null && deps.length < 25) {
+      deps.push(m[1]);
+    }
+
+    let framework: string | null = null;
+    const rawLower = raw.toLowerCase();
+    if (rawLower.includes("spring-boot")) framework = "spring-boot";
+    else if (rawLower.includes("quarkus")) framework = "quarkus";
+    else if (rawLower.includes("micronaut")) framework = "micronaut";
+
+    return {
+      language: "java",
+      framework,
+      runtime: null,
+      packageManager: "gradle",
+      dependencies: deps,
+      devDependencies: [],
+      scripts: {},
+      projectName: null,
+      projectVersion: null,
+    };
+  } catch {
+    return { ...EMPTY, language: "java" };
+  }
+}
+
+async function fromGemfile(projectPath: string): Promise<ManifestData | null> {
+  const raw = await readFileSafe(path.join(projectPath, "Gemfile"));
+  if (!raw) return null;
+
+  try {
+    const deps: string[] = [];
+    const gemRegex = /^gem\s+["']([^"']+)["']/gm;
+    let m: RegExpExecArray | null;
+    while ((m = gemRegex.exec(raw)) !== null && deps.length < 25) {
+      deps.push(m[1]);
+    }
+
+    let framework: string | null = null;
+    if (deps.includes("rails")) framework = "rails";
+    else if (deps.includes("sinatra")) framework = "sinatra";
+    else if (deps.includes("hanami")) framework = "hanami";
+
+    const rubyMatch = /ruby\s+["']([^"']+)["']/.exec(raw);
+    const runtime = rubyMatch ? `ruby ${rubyMatch[1]}` : null;
+
+    return {
+      language: "ruby",
+      framework,
+      runtime,
+      packageManager: "bundler",
+      dependencies: deps,
+      devDependencies: [],
+      scripts: {},
+      projectName: null,
+      projectVersion: null,
+    };
+  } catch {
+    return { ...EMPTY, language: "ruby" };
+  }
+}
+
+async function fromComposerJson(projectPath: string): Promise<ManifestData | null> {
+  const raw = await readFileSafe(path.join(projectPath, "composer.json"));
+  if (!raw) return null;
+
+  try {
+    const pkg = JSON.parse(raw) as Record<string, unknown>;
+    const deps = (pkg.require ?? {}) as Record<string, string>;
+    const devDeps = (pkg["require-dev"] ?? {}) as Record<string, string>;
+
+    const depNames = Object.keys(deps)
+      .filter((k) => k !== "php")
+      .map((k) => `${k}@${deps[k]}`)
+      .slice(0, 25);
+    const devDepNames = Object.keys(devDeps)
+      .map((k) => `${k}@${devDeps[k]}`)
+      .slice(0, 15);
+
+    let framework: string | null = null;
+    const allKeys = [...Object.keys(deps), ...Object.keys(devDeps)].join(" ");
+    if (allKeys.includes("laravel/framework")) framework = "laravel";
+    else if (allKeys.includes("symfony/")) framework = "symfony";
+    else if (allKeys.includes("slim/slim")) framework = "slim";
+
+    const phpVersion = typeof deps.php === "string" ? `php ${deps.php.replace(/[^0-9.]/g, "").slice(0, 6)}` : null;
+
+    return {
+      language: "php",
+      framework,
+      runtime: phpVersion,
+      packageManager: "composer",
+      dependencies: depNames,
+      devDependencies: devDepNames,
+      scripts: {},
+      projectName: typeof pkg.name === "string" ? pkg.name : null,
+      projectVersion: typeof pkg.version === "string" ? pkg.version : null,
+    };
+  } catch {
+    return { ...EMPTY, language: "php" };
+  }
+}
+
 export async function scanManifest(projectPath: string): Promise<ManifestData> {
   try {
     const result =
       (await fromPackageJson(projectPath)) ??
       (await fromPyproject(projectPath)) ??
       (await fromCargoToml(projectPath)) ??
-      (await fromGoMod(projectPath));
+      (await fromGoMod(projectPath)) ??
+      (await fromPomXml(projectPath)) ??
+      (await fromBuildGradle(projectPath)) ??
+      (await fromGemfile(projectPath)) ??
+      (await fromComposerJson(projectPath));
 
     if (result) return result;
     return { ...EMPTY };

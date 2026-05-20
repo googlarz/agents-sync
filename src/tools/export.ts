@@ -9,17 +9,20 @@ import type { ProjectMetadata } from "../extractor/schema.js";
 export interface ExportOptions {
   projectPath: string;
   tool: ToolName;
+  dryRun?: boolean;
 }
 
 export interface ExportResult {
   tool: ToolName;
   path: string;
   written: boolean;
+  dryRun: boolean;
   report: string;
   error?: string;
 }
 
 export async function runExport(options: ExportOptions): Promise<ExportResult> {
+  const { dryRun = false } = options;
   await assertProjectDir(options.projectPath);
 
   const snapshot = await loadSnapshot(options.projectPath);
@@ -62,19 +65,22 @@ export async function runExport(options: ExportOptions): Promise<ExportResult> {
     agentsMdContent: agentsMd,
     metadata: minimalMetadata,
     tools: [options.tool],
+    dryRun,
   });
 
   const result = results.find((r) => r.tool === options.tool);
   if (!result) {
-    return { tool: options.tool, path: "", written: false, report: `✗ ${options.tool}: No result from deriver`, error: "No result from deriver" };
+    return { tool: options.tool, path: "", written: false, dryRun, report: `✗ ${options.tool}: No result from deriver`, error: "No result from deriver" };
   }
 
   const report = result.error
     ? `✗ ${options.tool}: ${result.error}`
+    : dryRun
+    ? `DRY RUN — would write: ${result.path}`
     : `✓ ${options.tool} → ${result.path}`;
 
   // Update snapshot hash so validate doesn't flag the re-derived file as drifted
-  if (result.written && !result.error) {
+  if (result.written && !result.error && !dryRun) {
     const content = await fs.readFile(result.path, "utf-8").catch(() => "");
     const newHash = sha256(content);
     const existing = snapshot.filesManaged.find((f) => f.path === result.path);
@@ -88,6 +94,7 @@ export async function runExport(options: ExportOptions): Promise<ExportResult> {
     tool: options.tool,
     path: result.path,
     written: result.written,
+    dryRun,
     report,
     error: result.error,
   };
