@@ -20,13 +20,13 @@ Added Roo Code (`.roomodes`) and Aider (`CONVENTIONS.md`) as derived tool target
 
 Scanner detects MCP servers configured in `.claude/settings.json` and `.claude/settings.local.json`. Detected servers are documented in the generated `AGENTS.md` and `CLAUDE.md`. `CLAUDE.md` generation now includes stack-aware Claude Code skill recommendations (e.g. suggests `test-driven-development` for Vitest projects).
 
-### v1.5.0 — `install-hook` command
-
-`agents-sync install-hook .` installs a pre-commit hook that blocks commits when AI context files have drifted from `AGENTS.md`. Auto-detects **husky**, **lefthook**, or plain **git hooks**. Idempotent — safe to re-run. `--dry-run` previews changes. `agents_sync_install_hook` MCP tool.
-
 ### v1.4.0 — `scan` command + improved first-run UX
 
 `agents-sync scan .` (and `agents_sync_scan` MCP tool) runs the full scanner with no API key and prints what was detected — language, framework, dependencies, MCP servers, local skills, gotchas, and a ready-to-run `init` command. When `ANTHROPIC_API_KEY` is missing, `init`/`sync` now run `scan` first and show what was found before explaining setup — turning a dead-end error into a funnel.
+
+### v1.5.0 — `install-hook` command
+
+`agents-sync install-hook .` installs a pre-commit hook that blocks commits when AI context files have drifted from `AGENTS.md`. Auto-detects **husky**, **lefthook**, or plain **git hooks**. Idempotent — safe to re-run. `--dry-run` previews changes. `agents_sync_install_hook` MCP tool.
 
 ---
 
@@ -97,72 +97,7 @@ Large — 3–4 weeks for a production-ready v1 including OAuth dashboard.
 
 ---
 
-## ~~v2.1~~ Shipped as v1.5.0 — Category leadership: "The prettier of AI context"
-
-### Problem
-
-agents-sync is currently a *generator* — it writes files that users check in and maintain.
-The promise is strong, but the positioning is weak: "generate AI context files" competes with
-"write it yourself once." The real moat is not generation, it's *continuous enforcement*.
-
-Prettier succeeded not because it *helped* teams format code, but because it made formatting
-a *non-decision*. You commit, prettier runs, formatting is enforced. No one argues about tabs
-vs. spaces ever again.
-
-agents-sync can occupy the same position for AI context files: **the tool that ensures your
-AI tools always see the correct context, automatically, without human intervention.**
-
-### What we're building
-
-#### 1. Pre-commit hook / lefthook integration
-
-```bash
-# .lefthook.yml
-pre-commit:
-  commands:
-    agents-sync:
-      run: npx @googlarz/agents-sync drift . --ci
-      fail_text: "AI context files are out of sync. Run: agents-sync sync ."
-```
-
-A first-class `lefthook` + `husky` integration that blocks commits when drift is HIGH.
-Ships as a documented one-liner in the README, with an `agents-sync install-hook` command
-that writes the config automatically.
-
-#### 2. `agents-sync validate --strict` for CI
-
-Extends the existing validate command to exit 1 on ANY drift (not just HIGH). Provides a
-GitHub Actions step:
-
-```yaml
-- name: Verify AI context files are in sync
-  run: npx @googlarz/agents-sync validate . --strict
-```
-
-#### 3. VSCode / Cursor extension (stretch goal)
-
-A lightweight IDE extension with status bar, one-click sync, and Explorer decorations for
-managed files.
-
-### Positioning statement (after v2.1)
-
-> agents-sync is the prettier of AI context files. Install it once. It enforces consistency
-> automatically, at every commit and PR. Your AI tools always see the correct project context —
-> no matter which tool, no matter which developer, no matter how fast the codebase moves.
-
-### Success criteria
-
-- `agents-sync install-hook` works for husky and lefthook in < 30 seconds
-- `validate --strict` exits 1 on any drift from AGENTS.md
-- 3 public repos adopt the CI check within 30 days of release
-
-### Estimated effort
-
-Medium — 1–2 weeks for hook integration and strict CI mode.
-
----
-
-## v2.2 — Multi-LLM backends
+## v2.1 — Multi-LLM backends
 
 ### Problem
 
@@ -217,7 +152,7 @@ most time goes.
 
 ---
 
-## v2.3 — VS Code extension
+## v2.2 — VS Code extension
 
 ### What we're building
 
@@ -244,7 +179,7 @@ Medium-large — 2–3 weeks for a publishable extension with status bar, comman
 
 ---
 
-## v2.4 — File watcher daemon
+## v2.3 — File watcher daemon
 
 ### What we're building
 
@@ -278,14 +213,14 @@ Medium — 1.5–2 weeks.
 ## Sequencing note
 
 ```
-v1.4.0 (current) ──► v2.1 (hook + strict CI)   ──► v2.3 (VS Code extension)
-                 └──► v2.0 (GitHub App)          └──► v2.4 (file watcher daemon)
-                 └──► v2.2 (multi-LLM)
+v1.5.0 (current) ──► v2.0 (GitHub App)
+                 └──► v2.1 (multi-LLM)
+                 └──► v2.2 (VS Code extension) ──► v2.3 (file watcher daemon)
 ```
 
-- **v2.1** is highest leverage: fastest path to being in every developer's commit workflow.
-- **v2.0** (GitHub App) and **v2.2** (multi-LLM) are independent tracks.
-- **v2.3** (VS Code extension) depends on a stable CLI API — start after v2.1 ships.
-- **v2.4** (file watcher) shares infrastructure with v2.1 and benefits from v2.3 IPC — start last.
-- **v2.2** (multi-LLM) unlocks enterprise/air-gapped market; prioritize if API key friction
+- **v2.0** (GitHub App) is highest leverage: zero-maintenance sync for teams and organizations.
+- **v2.1** (multi-LLM) and **v2.0** are independent tracks.
+- **v2.2** (VS Code extension) depends on a stable CLI API.
+- **v2.3** (file watcher) benefits from v2.2 IPC — start last.
+- **v2.1** (multi-LLM) unlocks enterprise/air-gapped market; prioritize if API key friction
   proves to be the top adoption barrier.
