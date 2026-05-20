@@ -1,0 +1,49 @@
+name: Feature request
+description: Suggest a new feature or improvement
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the gap or pain point. A concrete example helps.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: What would you like to see built? How would it work?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area does this affect?
+      options:
+        - New target tool (cursor, windsurf, etc.)
+        - New language / manifest support
+        - LLM backend (OpenAI, Gemini, local model)
+        - CLI / MCP interface
+        - Drift detection
+        - agents-sync.config.json
+        - GitHub integration
+        - VS Code / IDE extension
+        - Documentation
+        - Other
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What workarounds exist today? Why don't they work?
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Are you willing to submit a PR?
+      options:
+        - label: Yes, I'd like to implement this
+        - label: I can help review / test

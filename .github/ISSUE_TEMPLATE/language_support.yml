@@ -1,0 +1,37 @@
+name: Language / framework support request
+description: Request support for a new language, framework, or manifest format
+labels: ["language-support"]
+body:
+  - type: input
+    id: language
+    attributes:
+      label: Language or framework
+      placeholder: "Ruby on Rails, Elixir/Phoenix, Swift Package Manager, …"
+    validations:
+      required: true
+
+  - type: input
+    id: manifest
+    attributes:
+      label: Manifest file(s)
+      description: The file agents-sync should read to detect this language.
+      placeholder: "Gemfile, mix.exs, Package.swift, …"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: What conventions / gotchas should agents-sync know about?
+      description: |
+        Things specific to this language that agents-sync should detect and
+        include in generated AGENTS.md files. Optional but helps us write
+        better prompts.
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I can provide a test fixture (minimal project tree)
+        - label: I can submit a PR for the manifest scanner

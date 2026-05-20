@@ -1,0 +1,76 @@
+name: Bug report
+description: Something isn't working correctly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, check that you're on the latest version: `npx @googlarz/agents-sync --version`
+
+  - type: input
+    id: version
+    attributes:
+      label: agents-sync version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: command
+    attributes:
+      label: Which command failed?
+      options:
+        - init
+        - sync
+        - drift
+        - validate
+        - status
+        - export
+        - MCP server (via Claude Code)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the bug. Include the exact command you ran.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: debug
+    attributes:
+      label: Debug output
+      description: |
+        Run with `AGENTS_SYNC_DEBUG=1` and paste the output:
+        ```
+        AGENTS_SYNC_DEBUG=1 npx @googlarz/agents-sync <command> . 2>&1
+        ```
+      render: shell
+
+  - type: dropdown
+    id: language
+    attributes:
+      label: Project language
+      options:
+        - TypeScript / JavaScript
+        - Python
+        - Rust
+        - Go
+        - PHP
+        - Other
+
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      placeholder: "node --version"
