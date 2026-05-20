@@ -114,6 +114,108 @@ function computeMaxSeverity(signals: DriftSignal[]): DriftSeverity | "NONE" {
   return "NONE";
 }
 
+/**
+ * Detect contradictions between what AGENTS.md *claims* about the stack and what
+ * the current manifest/filesystem actually contains.  Returns DriftSignals that can
+ * be merged into a structural drift report.
+ */
+export function detectSemanticDrift(agentsMdContent: string, corpus: RawCorpus): DriftSignal[] {
+  const signals: DriftSignal[] = [];
+  const md = agentsMdContent.toLowerCase();
+  const allDeps = new Set([
+    ...corpus.manifest.dependencies.map((d) => d.toLowerCase()),
+    ...corpus.manifest.devDependencies.map((d) => d.toLowerCase()),
+  ]);
+  const tree = corpus.structure.tree.toLowerCase();
+
+  // ── Database layer conflicts ────────────────────────────────────────────────
+  const dbConflicts: Array<[string, string[]]> = [
+    ["prisma", ["drizzle-orm", "mongoose", "sequelize", "typeorm", "mikro-orm"]],
+    ["drizzle", ["@prisma/client", "mongoose", "sequelize", "typeorm"]],
+    ["mongoose", ["@prisma/client", "drizzle-orm", "sequelize", "typeorm"]],
+    ["sequelize", ["@prisma/client", "drizzle-orm", "mongoose"]],
+    ["typeorm", ["@prisma/client", "drizzle-orm", "mongoose", "sequelize"]],
+    ["sqlalchemy", ["django.db", "peewee"]],
+  ];
+  for (const [stated, rivals] of dbConflicts) {
+    if (!md.includes(stated)) continue;
+    const found = rivals.filter((r) => allDeps.has(r));
+    if (found.length) {
+      signals.push({
+        severity: "HIGH",
+        message: `Stack contradiction: AGENTS.md states "${stated}" but manifest now has ${found.join(", ")}`,
+        detail: "Database layer may have migrated — re-sync to update AI context",
+      });
+    }
+  }
+
+  // ── Test framework conflicts ────────────────────────────────────────────────
+  const testConflicts: Array<[string, string[]]> = [
+    ["vitest", ["jest", "@jest/core", "jasmine2", "mocha"]],
+    ["jest", ["vitest", "jasmine", "mocha"]],
+    ["pytest", ["nose2", "unittest2"]],
+    ["mocha", ["jest", "vitest", "jasmine"]],
+  ];
+  for (const [stated, rivals] of testConflicts) {
+    if (!md.includes(stated)) continue;
+    const found = rivals.filter((r) => allDeps.has(r));
+    if (found.length) {
+      signals.push({
+        severity: "HIGH",
+        message: `Stack contradiction: AGENTS.md states "${stated}" for testing but manifest has ${found.join(", ")}`,
+        detail: "Test framework may have changed — re-sync to update AI context",
+      });
+    }
+  }
+
+  // ── Primary framework conflicts ─────────────────────────────────────────────
+  const frameworkConflicts: Array<[string, string[]]> = [
+    ["next.js", ["remix", "sveltekit", "@nuxtjs", "astro", "@hono"]],
+    ["remix", ["next", "sveltekit", "@nuxtjs"]],
+    ["sveltekit", ["next", "remix", "@nuxtjs"]],
+    ["express", ["fastify", "@hono/node-server", "elysia"]],
+    ["fastify", ["express", "@hono/node-server"]],
+    ["django", ["fastapi", "flask", "starlette"]],
+    ["fastapi", ["django", "flask"]],
+    ["flask", ["django", "fastapi"]],
+    ["axum", ["actix-web", "warp", "rocket"]],
+    ["actix-web", ["axum", "warp", "rocket"]],
+  ];
+  for (const [stated, rivals] of frameworkConflicts) {
+    if (!md.includes(stated)) continue;
+    const found = rivals.filter((r) => allDeps.has(r));
+    if (found.length) {
+      signals.push({
+        severity: "HIGH",
+        message: `Stack contradiction: AGENTS.md states "${stated}" but manifest now has ${found.join(", ")}`,
+        detail: "Primary framework may have changed — re-sync strongly recommended",
+      });
+    }
+  }
+
+  // ── Deployment target vs config files ──────────────────────────────────────
+  const deployConflicts: Array<[string, string[]]> = [
+    ["vercel", ["fly.toml", "railway.json", ".railway", "dockerfile", "heroku.yml", "render.yaml"]],
+    ["fly.io", ["vercel.json", ".vercel", "railway.json", "heroku.yml", "render.yaml"]],
+    ["heroku", ["fly.toml", "vercel.json", "railway.json", "render.yaml"]],
+    ["railway", ["fly.toml", "vercel.json", "heroku.yml", "render.yaml"]],
+    ["render", ["fly.toml", "vercel.json", "heroku.yml", "railway.json"]],
+  ];
+  for (const [stated, conflictFiles] of deployConflicts) {
+    if (!md.includes(stated)) continue;
+    const found = conflictFiles.filter((f) => tree.includes(f));
+    if (found.length) {
+      signals.push({
+        severity: "MEDIUM",
+        message: `Stack contradiction: AGENTS.md states "${stated}" deployment but ${found[0]} found in project`,
+        detail: "Deployment target may have changed — re-sync to update AI context",
+      });
+    }
+  }
+
+  return signals;
+}
+
 export function formatDriftReport(report: DriftReport): string {
   const NO_COLOR = process.env.NO_COLOR === "1";
   const color = (code: string, text: string) =>

@@ -8,8 +8,9 @@ import { runDrift } from "./tools/drift.js";
 import { runExport } from "./tools/export.js";
 import { runValidate } from "./tools/validate.js";
 import { runStatus } from "./tools/status.js";
+import { runLint } from "./tools/lint.js";
 
-const VERSION = "1.0.0";
+const VERSION = "1.1.0";
 
 const server = new McpServer({
   name: "agents-sync",
@@ -241,6 +242,31 @@ server.tool(
       }
 
       return { content: [{ type: "text" as const, text: lines.join("\n") }] };
+    } catch (e) {
+      return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
+    }
+  },
+);
+
+// ─── agents_sync_lint ────────────────────────────────────────────────────────
+
+server.tool(
+  "agents_sync_lint",
+  "Verify the codebase against mechanically-checkable 'Never' rules in AGENTS.md. Returns a list of violations.",
+  {
+    projectPath: z.string().describe("Absolute path to the project root directory"),
+    strict: z
+      .boolean()
+      .optional()
+      .describe("Return isError=true when any violations are found (CI mode)."),
+  },
+  async ({ projectPath, strict }) => {
+    try {
+      const result = await runLint({ projectPath, strict });
+      return {
+        content: [{ type: "text" as const, text: result.report }],
+        isError: strict && !result.passed ? true : undefined,
+      };
     } catch (e) {
       return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
     }

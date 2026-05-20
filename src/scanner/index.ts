@@ -4,8 +4,10 @@ import { sampleSource, type SourceData } from "./source.js";
 import { scanDocs, type DocData } from "./docs.js";
 import { scanGotchas, type Gotcha } from "./gotchas.js";
 import { parseRepomixOutput } from "./repomix.js";
+import { readCodegraphIndex, type CodegraphSummary } from "./codegraph.js";
 
 export type { ManifestData, StructureData, SourceData, DocData, Gotcha };
+export type { CodegraphSummary };
 
 export interface RawCorpus {
   manifest: ManifestData;
@@ -13,6 +15,7 @@ export interface RawCorpus {
   source: SourceData;
   docs: DocData;
   gotchas: Gotcha[];
+  codegraph: CodegraphSummary;
   totalEstimatedTokens: number;
   scanDurationMs: number;
 }
@@ -89,10 +92,13 @@ export async function scan(projectPath: string, options: ScanOptions = {}): Prom
     ? () => parseRepomixOutput(options.repomixPath!)
     : () => sampleSource(projectPath);
 
-  const [source, docs, gotchas] = await Promise.all([
+  const EMPTY_CODEGRAPH: CodegraphSummary = { available: false, communities: [], hubNodes: [], entryPoints: [] };
+
+  const [source, docs, gotchas, codegraph] = await Promise.all([
     safeRun("source", sourceRunner, DEFAULT_SOURCE),
     safeRun("docs", () => scanDocs(projectPath), DEFAULT_DOCS),
     safeRun("gotchas", () => scanGotchas(projectPath), [] as Gotcha[]),
+    safeRun("codegraph", () => readCodegraphIndex(projectPath), EMPTY_CODEGRAPH),
   ]);
 
   const scanDurationMs = Date.now() - start;
@@ -115,6 +121,7 @@ export async function scan(projectPath: string, options: ScanOptions = {}): Prom
     source,
     docs,
     gotchas,
+    codegraph,
     totalEstimatedTokens,
     scanDurationMs,
   };

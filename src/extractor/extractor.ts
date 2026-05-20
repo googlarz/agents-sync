@@ -2,6 +2,7 @@ import { callClaude } from "../lib/claude-client.js";
 import { AgentsSyncError } from "../lib/errors.js";
 import { type ProjectMetadata, ProjectMetadataSchema } from "./schema.js";
 import type { RawCorpus } from "../scanner/index.js";
+import { formatCodegraphContext } from "../scanner/codegraph.js";
 
 const SYSTEM_PROMPT = `You are a code analyst. Your job is to extract factual information about a software project from the files provided.
 
@@ -125,6 +126,14 @@ function buildPrompt(corpus: RawCorpus): string {
     sections.push("\n=== GOTCHAS FOUND IN SOURCE (TODO/FIXME/HACK comments) ===");
     for (const g of corpus.gotchas) {
       sections.push(`${g.type} in ${g.file}:${g.line} — ${g.comment}`);
+    }
+  }
+
+  if (corpus.codegraph?.available) {
+    const cgContext = formatCodegraphContext(corpus.codegraph);
+    if (cgContext) {
+      sections.push("\n=== CODE GRAPH (structural analysis) ===");
+      sections.push(cgContext);
     }
   }
 

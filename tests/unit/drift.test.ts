@@ -27,6 +27,7 @@ function makeCorpus(overrides: Partial<RawCorpus> = {}): RawCorpus {
     source: { files: [], totalTokens: 0, importStyle: "esm", detectedPatterns: [] },
     docs: { readme: null, contributing: null, architecture: null, existingAgentsMd: null, existingClaudeMd: null, existingCursorRules: null, hasExistingClaudeMd: false, hasExistingAgentsMd: false, totalTokens: 0 },
     gotchas: [],
+    codegraph: { available: false, communities: [], hubNodes: [], entryPoints: [] },
     totalEstimatedTokens: 1000,
     scanDurationMs: 100,
     ...overrides,

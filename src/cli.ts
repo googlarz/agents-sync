@@ -55,6 +55,7 @@ COMMANDS
   sync [path]               Re-sync after codebase changes
   drift [path]              Check what changed since last sync
   validate [path]           Check if all files match AGENTS.md
+  lint [path]               Verify codebase against 'Never' rules in AGENTS.md
   status [path]             Show sync status and managed files
   export <tool> [path]      Re-derive a single tool file (no API call)
                             Tools: claude, cursor, copilot, gemini, windsurf, cline
@@ -64,7 +65,7 @@ COMMANDS
 OPTIONS
   --dry-run                 Preview changes without writing files
   --fast                    sync only — skip API call if drift is minor
-  --ci                      drift only — exit 1 when drift is HIGH (for CI)
+  --ci                      drift/lint — exit 1 when drift is HIGH or lint has violations
   --tools <list>            Comma-separated tools to generate (init/sync)
                             e.g. --tools claude,cursor,copilot
   --repomix-output <file>   Use repomix XML/text output as source corpus
@@ -207,6 +208,15 @@ async function runCli(): Promise<void> {
       const projectPath = resolvePath(positional[1]);
       const result = await runStatus({ projectPath });
       printResult(result);
+      break;
+    }
+
+    case "lint": {
+      const { runLint } = await import("./tools/lint.js");
+      const projectPath = resolvePath(positional[1]);
+      const result = await runLint({ projectPath, strict: ci });
+      process.stdout.write(result.report + "\n");
+      if (!result.passed) process.exit(1);
       break;
     }
 
