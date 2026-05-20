@@ -361,7 +361,64 @@ npx @googlarz/agents-sync lint . --ci                # Exit 1 on any violation (
 npx @googlarz/agents-sync init . --dry-run           # Preview without writing
 npx @googlarz/agents-sync init . --tools claude,cursor,roo   # Specific tools only
 npx @googlarz/agents-sync sync . --fast              # Skip API call if drift is minor
+
+npx @googlarz/agents-sync install-hook .             # Block commits when drift is HIGH
+npx @googlarz/agents-sync install-hook . --dry-run   # Preview what would be installed
 ```
+
+</details>
+
+---
+
+## Pre-commit Hook
+
+Block commits automatically when AI context files drift from `AGENTS.md`:
+
+```bash
+npx @googlarz/agents-sync install-hook .
+```
+
+Auto-detects your hook manager — **husky**, **lefthook**, or plain **git hooks**. Force a specific one with `--husky`, `--lefthook`, or `--git`.
+
+**What it installs:**
+
+<details>
+<summary>husky</summary>
+
+```sh
+# .husky/pre-commit
+npx @googlarz/agents-sync drift . --ci
+```
+
+</details>
+
+<details>
+<summary>lefthook</summary>
+
+```yaml
+# .lefthook.yml
+pre-commit:
+  commands:
+    agents-sync:
+      run: npx @googlarz/agents-sync drift . --ci
+      fail_text: "AI context files are out of sync. Run: npx @googlarz/agents-sync sync ."
+```
+
+</details>
+
+<details>
+<summary>plain git</summary>
+
+```sh
+# .git/hooks/pre-commit
+npx @googlarz/agents-sync drift . --ci
+if [ $? -ne 0 ]; then
+  echo "AI context files are out of sync. Run: npx @googlarz/agents-sync sync ."
+  exit 1
+fi
+```
+
+Plain git hooks are local only — each teammate runs `install-hook` once. For shared enforcement, use husky or lefthook.
 
 </details>
 

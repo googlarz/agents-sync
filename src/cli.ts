@@ -10,6 +10,7 @@
  *   npx @googlarz/agents-sync validate [path]  Check files are in sync
  *   npx @googlarz/agents-sync status [path]    Show sync status
  *   npx @googlarz/agents-sync export <tool> [path]  Re-derive a single file
+ *   npx @googlarz/agents-sync install-hook [path]   Install pre-commit drift check
  */
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -60,6 +61,8 @@ COMMANDS
   status [path]             Show sync status and managed files
   export <tool> [path]      Re-derive a single tool file (no API call)
                             Tools: claude, cursor, copilot, gemini, windsurf, cline, roo, aider
+  install-hook [path]       Install pre-commit hook that blocks commits when drift is HIGH
+                            Auto-detects husky, lefthook, or plain git hooks
 
   (no command)              Start MCP server (stdio transport)
 
@@ -67,6 +70,9 @@ OPTIONS
   --dry-run                 Preview changes without writing files
   --fast                    sync only — skip API call if drift is minor
   --ci                      drift/lint — exit 1 when drift is HIGH or lint has violations
+  --husky                   install-hook — force husky hook manager
+  --lefthook                install-hook — force lefthook hook manager
+  --git                     install-hook — force plain git hooks
   --tools <list>            Comma-separated tools to generate (init/sync)
                             e.g. --tools claude,cursor,roo,aider
   --repomix-output <file>   Use repomix XML/text output as source corpus
@@ -226,6 +232,15 @@ async function runCli(): Promise<void> {
       const { runScanReport } = await import("./tools/scan-report.js");
       const projectPath = resolvePath(positional[1]);
       const result = await runScanReport({ projectPath });
+      process.stdout.write(result.report + "\n");
+      break;
+    }
+
+    case "install-hook": {
+      const { runInstallHook } = await import("./tools/install-hook.js");
+      const projectPath = resolvePath(positional[1]);
+      const manager = hasFlag("--husky") ? "husky" : hasFlag("--lefthook") ? "lefthook" : hasFlag("--git") ? "git" : undefined;
+      const result = await runInstallHook({ projectPath, manager, dryRun });
       process.stdout.write(result.report + "\n");
       break;
     }

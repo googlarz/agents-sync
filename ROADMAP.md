@@ -20,6 +20,10 @@ Added Roo Code (`.roomodes`) and Aider (`CONVENTIONS.md`) as derived tool target
 
 Scanner detects MCP servers configured in `.claude/settings.json` and `.claude/settings.local.json`. Detected servers are documented in the generated `AGENTS.md` and `CLAUDE.md`. `CLAUDE.md` generation now includes stack-aware Claude Code skill recommendations (e.g. suggests `test-driven-development` for Vitest projects).
 
+### v1.5.0 — `install-hook` command
+
+`agents-sync install-hook .` installs a pre-commit hook that blocks commits when AI context files have drifted from `AGENTS.md`. Auto-detects **husky**, **lefthook**, or plain **git hooks**. Idempotent — safe to re-run. `--dry-run` previews changes. `agents_sync_install_hook` MCP tool.
+
 ### v1.4.0 — `scan` command + improved first-run UX
 
 `agents-sync scan .` (and `agents_sync_scan` MCP tool) runs the full scanner with no API key and prints what was detected — language, framework, dependencies, MCP servers, local skills, gotchas, and a ready-to-run `init` command. When `ANTHROPIC_API_KEY` is missing, `init`/`sync` now run `scan` first and show what was found before explaining setup — turning a dead-end error into a funnel.
@@ -93,7 +97,7 @@ Large — 3–4 weeks for a production-ready v1 including OAuth dashboard.
 
 ---
 
-## v2.1 — Category leadership: "The prettier of AI context"
+## ~~v2.1~~ Shipped as v1.5.0 — Category leadership: "The prettier of AI context"
 
 ### Problem
 

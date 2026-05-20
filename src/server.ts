@@ -10,8 +10,9 @@ import { runValidate } from "./tools/validate.js";
 import { runStatus } from "./tools/status.js";
 import { runLint } from "./tools/lint.js";
 import { runScanReport } from "./tools/scan-report.js";
+import { runInstallHook } from "./tools/install-hook.js";
 
-const VERSION = "1.4.0";
+const VERSION = "1.5.0";
 
 const server = new McpServer({
   name: "agents-sync",
@@ -285,6 +286,32 @@ server.tool(
   async ({ projectPath }) => {
     try {
       const result = await runScanReport({ projectPath });
+      return { content: [{ type: "text" as const, text: result.report }] };
+    } catch (e) {
+      return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
+    }
+  },
+);
+
+// ─── agents_sync_install_hook ─────────────────────────────────────────────────
+
+server.tool(
+  "agents_sync_install_hook",
+  "Install a pre-commit hook that blocks commits when AI context files have drifted from AGENTS.md. Auto-detects husky, lefthook, or plain git hooks.",
+  {
+    projectPath: z.string().describe("Absolute path to the project root directory"),
+    manager: z
+      .enum(["husky", "lefthook", "git"])
+      .optional()
+      .describe("Force a specific hook manager. Default: auto-detect."),
+    dryRun: z
+      .boolean()
+      .optional()
+      .describe("Preview what would be written without making changes."),
+  },
+  async ({ projectPath, manager, dryRun }) => {
+    try {
+      const result = await runInstallHook({ projectPath, manager, dryRun });
       return { content: [{ type: "text" as const, text: result.report }] };
     } catch (e) {
       return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
