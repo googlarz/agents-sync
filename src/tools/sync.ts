@@ -4,7 +4,7 @@ import { AgentsSyncError } from "../lib/errors.js";
 import type { ProjectMetadata } from "../extractor/schema.js";
 import { scan } from "../scanner/index.js";
 import { extractMetadata } from "../extractor/extractor.js";
-import { generateAgentsMd } from "../generator/agents-md.js";
+import { generateAgentsMd, appendMcpSection } from "../generator/agents-md.js";
 import { validateAgentsMd } from "../generator/validator.js";
 import { deriveAll, type ToolName } from "../derivers/index.js";
 import { buildSnapshot, loadSnapshot, saveSnapshot, sha256 } from "../snapshot/writer.js";
@@ -72,7 +72,7 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
     // Full re-extraction
     const rawMetadata = await extractMetadata(corpus);
     const metadata = applyConfig(rawMetadata, config);
-    agentsMd = await generateAgentsMd(metadata);
+    agentsMd = appendMcpSection(await generateAgentsMd(metadata), corpus.mcp);
     const validation = validateAgentsMd(agentsMd, corpus.structure.topLevelDirs);
 
     if (!dryRun) {

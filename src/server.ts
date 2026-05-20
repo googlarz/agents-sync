@@ -10,7 +10,7 @@ import { runValidate } from "./tools/validate.js";
 import { runStatus } from "./tools/status.js";
 import { runLint } from "./tools/lint.js";
 
-const VERSION = "1.2.0";
+const VERSION = "1.3.0";
 
 const server = new McpServer({
   name: "agents-sync",

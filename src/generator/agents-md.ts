@@ -1,6 +1,8 @@
 import { callClaude } from "../lib/claude-client.js";
 import { AgentsSyncError } from "../lib/errors.js";
 import type { ProjectMetadata } from "../extractor/schema.js";
+import type { McpScanResult } from "../scanner/mcp.js";
+import { formatMcpSection } from "../scanner/mcp.js";
 
 const SYSTEM_PROMPT = `You are writing an AGENTS.md file — the canonical AI context file for a software project.
 
@@ -54,6 +56,13 @@ const TEMPLATE = `# AGENTS.md
 
 ### Never
 {NEVER}`;
+
+/** Appends an MCP Servers section to an already-generated AGENTS.md if servers were found. */
+export function appendMcpSection(agentsMd: string, mcp: McpScanResult): string {
+  if (!mcp.hasAny) return agentsMd;
+  const section = formatMcpSection(mcp);
+  return `${agentsMd.trimEnd()}\n\n${section}`;
+}
 
 export async function generateAgentsMd(metadata: ProjectMetadata): Promise<string> {
   const userPrompt = buildPrompt(metadata);

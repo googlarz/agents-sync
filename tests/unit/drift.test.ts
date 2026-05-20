@@ -28,6 +28,7 @@ function makeCorpus(overrides: Partial<RawCorpus> = {}): RawCorpus {
     docs: { readme: null, contributing: null, architecture: null, existingAgentsMd: null, existingClaudeMd: null, existingCursorRules: null, hasExistingClaudeMd: false, hasExistingAgentsMd: false, totalTokens: 0 },
     gotchas: [],
     codegraph: { available: false, communities: [], hubNodes: [], entryPoints: [] },
+    mcp: { servers: [], hasAny: false },
     totalEstimatedTokens: 1000,
     scanDurationMs: 100,
     ...overrides,

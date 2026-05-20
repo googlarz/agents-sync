@@ -5,9 +5,10 @@ import { scanDocs, type DocData } from "./docs.js";
 import { scanGotchas, type Gotcha } from "./gotchas.js";
 import { parseRepomixOutput } from "./repomix.js";
 import { readCodegraphIndex, type CodegraphSummary } from "./codegraph.js";
+import { scanMcpServers, type McpScanResult } from "./mcp.js";
 
 export type { ManifestData, StructureData, SourceData, DocData, Gotcha };
-export type { CodegraphSummary };
+export type { CodegraphSummary, McpScanResult };
 
 export interface RawCorpus {
   manifest: ManifestData;
@@ -16,6 +17,7 @@ export interface RawCorpus {
   docs: DocData;
   gotchas: Gotcha[];
   codegraph: CodegraphSummary;
+  mcp: McpScanResult;
   totalEstimatedTokens: number;
   scanDurationMs: number;
 }
@@ -93,12 +95,14 @@ export async function scan(projectPath: string, options: ScanOptions = {}): Prom
     : () => sampleSource(projectPath);
 
   const EMPTY_CODEGRAPH: CodegraphSummary = { available: false, communities: [], hubNodes: [], entryPoints: [] };
+  const EMPTY_MCP: McpScanResult = { servers: [], hasAny: false };
 
-  const [source, docs, gotchas, codegraph] = await Promise.all([
+  const [source, docs, gotchas, codegraph, mcp] = await Promise.all([
     safeRun("source", sourceRunner, DEFAULT_SOURCE),
     safeRun("docs", () => scanDocs(projectPath), DEFAULT_DOCS),
     safeRun("gotchas", () => scanGotchas(projectPath), [] as Gotcha[]),
     safeRun("codegraph", () => readCodegraphIndex(projectPath), EMPTY_CODEGRAPH),
+    safeRun("mcp", () => scanMcpServers(projectPath), EMPTY_MCP),
   ]);
 
   const scanDurationMs = Date.now() - start;
@@ -122,6 +126,7 @@ export async function scan(projectPath: string, options: ScanOptions = {}): Prom
     docs,
     gotchas,
     codegraph,
+    mcp,
     totalEstimatedTokens,
     scanDurationMs,
   };

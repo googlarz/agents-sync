@@ -27,6 +27,7 @@ function makeCorpus(deps: string[] = [], devDeps: string[] = [], tree = ""): Raw
     docs: { readme: null, contributing: null, architecture: null, existingAgentsMd: null, existingClaudeMd: null, existingCursorRules: null, hasExistingClaudeMd: false, hasExistingAgentsMd: false, totalTokens: 0 },
     gotchas: [],
     codegraph: { available: false, communities: [], hubNodes: [], entryPoints: [] },
+    mcp: { servers: [], hasAny: false },
     totalEstimatedTokens: 100,
     scanDurationMs: 0,
   };
