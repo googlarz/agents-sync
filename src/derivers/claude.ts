@@ -1,6 +1,6 @@
 import path from "node:path";
 import type { ProjectMetadata } from "../extractor/schema.js";
-import { injectCustomBlocks, loadExistingCustomBlocks } from "./merger.js";
+import { injectCustomBlocks, loadExistingCustomBlocks, loadUnmanagedFileAsCustomBlock } from "./merger.js";
 
 export interface ClaudeDerivationOptions {
   projectPath: string;
@@ -43,7 +43,12 @@ export async function deriveClaudeMd(options: ClaudeDerivationOptions): Promise<
   if (!preserveCustom) return generated;
 
   const claudeMdPath = path.join(projectPath, "CLAUDE.md");
+  // Preserve managed custom blocks first; fall back to wrapping the whole
+  // file if it exists but was never managed by agents-sync.
   const existingBlocks = await loadExistingCustomBlocks(claudeMdPath);
+  const blocks = existingBlocks.length > 0
+    ? existingBlocks
+    : await loadUnmanagedFileAsCustomBlock(claudeMdPath);
 
-  return injectCustomBlocks(generated, existingBlocks);
+  return injectCustomBlocks(generated, blocks);
 }

@@ -1,6 +1,6 @@
 ---
 name: agents-sync
-description: Generate and sync AI context files (AGENTS.md, CLAUDE.md, .cursorrules, copilot-instructions.md) from your codebase. One canonical source, every tool stays current.
+description: Generate and sync AI context files (AGENTS.md, CLAUDE.md, .cursorrules, copilot-instructions.md, GEMINI.md, .windsurfrules, .clinerules) from your codebase. One canonical source, every tool stays current.
 version: 1.0.0
 ---
 
@@ -38,7 +38,7 @@ First-time setup. Reads your codebase and generates all context files.
 1. Scans your codebase (manifests, structure, source samples, docs, TODO/FIXME comments)
 2. Extracts project metadata via Claude API
 3. Generates canonical `AGENTS.md`
-4. Derives `CLAUDE.md`, `.cursorrules`, `.github/copilot-instructions.md`
+4. Derives `CLAUDE.md`, `.cursorrules`, `.github/copilot-instructions.md`, `GEMINI.md`, `.windsurfrules`, `.clinerules`
 5. Saves a snapshot for drift detection
 
 **Usage:**
@@ -78,7 +78,7 @@ Check what changed in your codebase since the last sync. Read-only.
 
 Re-derive a single tool file without re-running analysis.
 
-**Tools:** `claude`, `cursor`, `copilot`
+**Tools:** `claude`, `cursor`, `copilot`, `gemini`, `windsurf`, `cline`
 
 **Usage:**
 > `/agents-sync export cursor`
@@ -155,4 +155,4 @@ Use staging Stripe keys (in .env.staging) for all local testing.
 <!-- AGENTS-SYNC:CUSTOM:END -->
 ```
 
-Add this anywhere in `AGENTS.md`, `CLAUDE.md`, or `.cursorrules`. Re-sync preserves it.
+Add this anywhere in `AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `GEMINI.md`, `.windsurfrules`, or `.clinerules`. Re-sync preserves it.

@@ -1,0 +1,14 @@
+# .windsurfrules — managed by agents-sync v1.0.0
+# Language: TypeScript / Next.js 14
+
+- Always: use kebab-case filenames
+- Always: named exports only (default exports for Next.js pages/layouts only)
+- Always: validate external input with Zod
+- Always: co-locate tests (*.test.ts next to source)
+- Always: server components by default; 'use client' only when required
+- Never: DB connection is singleton — use src/lib/db.ts, not new PrismaClient()
+- Never: add API routes without checking middleware.ts auth coverage
+- Never: date comparisons without UTC — use date-fns/utc variants
+- Never: commit .env or .env.local
+- Never: TypeScript any
+- Tests: npm test

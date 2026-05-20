@@ -1,8 +1,20 @@
 {
   "name": "@googlarz/agents-sync",
   "version": "1.0.0",
-  "description": "Generate and sync AI context files across every coding tool. One canonical AGENTS.md, derived into CLAUDE.md, .cursorrules, and copilot-instructions automatically.",
-  "keywords": ["claude", "cursor", "mcp", "agents", "ai", "codegen", "context", "agentsmd", "cursorrules"],
+  "description": "Write your AI context once. One canonical AGENTS.md auto-derived into CLAUDE.md, .cursorrules, copilot-instructions.md, GEMINI.md, .windsurfrules, and .clinerules.",
+  "keywords": ["claude", "cursor", "mcp", "agents", "ai", "codegen", "context", "agentsmd", "cursorrules", "windsurf", "cline", "gemini", "agents-sync"],
+  "homepage": "https://github.com/googlarz/agents-sync#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/googlarz/agents-sync.git"
+  },
+  "bugs": {
+    "url": "https://github.com/googlarz/agents-sync/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "author": "googlarz",
   "license": "MIT",
   "type": "module",
@@ -13,6 +25,8 @@
   "files": [
     "dist/",
     "skill/",
+    "docs/",
+    "scripts/",
     "README.md",
     "LICENSE"
   ],

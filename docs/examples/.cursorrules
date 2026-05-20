@@ -1,0 +1,19 @@
+# .cursorrules — managed by agents-sync v1.0.0
+# Language: TypeScript / Next.js 14
+# Run tests: npm test
+
+- Always: use kebab-case filenames (user-profile.tsx not UserProfile.tsx)
+- Always: named exports only (no default exports except Next.js page/layout components)
+- Always: validate external API responses with Zod
+- Always: co-locate tests (Button.test.tsx next to Button.tsx)
+- Always: server components by default — add 'use client' only when needed
+- Always: use cn() from lib/utils.ts for conditional classNames
+- Never: import PrismaClient directly (use src/lib/db.ts — connection pool exhaustion)
+- Never: add /api/ routes without checking middleware.ts auth coverage
+- Never: use date-fns without /utc variants (multi-timezone dashboard)
+- Never: commit .env or .env.local
+- Never: use TypeScript any — use unknown and narrow
+- Never: push directly to main
+- Never: use console.log in production (use logger utility)
+- Tests: npm test
+- Build: npm run build

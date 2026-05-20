@@ -21,6 +21,7 @@ export interface ValidateResult {
   toolFiles: FileValidation[];
   allInSync: boolean;
   hasSnapshot: boolean;
+  report: string;
 }
 
 function sha256File(content: string): string {
@@ -32,7 +33,31 @@ const TOOL_PATHS: Record<string, string> = {
   claude: "CLAUDE.md",
   cursor: ".cursorrules",
   copilot: ".github/copilot-instructions.md",
+  gemini: "GEMINI.md",
+  windsurf: ".windsurfrules",
+  cline: ".clinerules",
 };
+
+function buildReport(
+  canonical: { path: string; exists: boolean },
+  toolFiles: FileValidation[],
+  hasSnapshot: boolean,
+): string {
+  const lines: string[] = [];
+  lines.push(`AGENTS.md (canonical)  ${canonical.exists ? "✓" : "✗ MISSING"}`);
+  lines.push("");
+  for (const f of toolFiles) {
+    const icon = f.status === "in-sync" ? "✓" : f.status === "drifted" ? "⚠" : "✗";
+    const label = f.status === "in-sync" ? "in sync" : f.status;
+    lines.push(`${icon} ${f.tool.padEnd(10)} ${label.padEnd(10)} ${f.path}`);
+    if (f.details) lines.push(`              ${f.details}`);
+  }
+  if (!hasSnapshot) {
+    lines.push("");
+    lines.push("No snapshot found. Run init to establish a baseline.");
+  }
+  return lines.join("\n");
+}
 
 export async function runValidate(options: ValidateOptions): Promise<ValidateResult> {
   await assertProjectDir(options.projectPath);
@@ -55,12 +80,13 @@ export async function runValidate(options: ValidateOptions): Promise<ValidateRes
         details: exists ? "No snapshot to compare against" : undefined,
       });
     }
-    return {
+    const result = {
       canonical: { path: agentsMdPath, exists: canonicalExists },
       toolFiles,
       allInSync: false,
       hasSnapshot: false,
     };
+    return { ...result, report: buildReport(result.canonical, toolFiles, false) };
   }
 
   // Compare current file hashes against snapshot
@@ -91,10 +117,12 @@ export async function runValidate(options: ValidateOptions): Promise<ValidateRes
     }
   }
 
+  const canonical = { path: agentsMdPath, exists: canonicalExists };
   return {
-    canonical: { path: agentsMdPath, exists: canonicalExists },
+    canonical,
     toolFiles,
     allInSync,
     hasSnapshot: true,
+    report: buildReport(canonical, toolFiles, true),
   };
 }

@@ -19,6 +19,8 @@ Every AI coding tool expects its own context file:
 | GitHub Copilot | `.github/copilot-instructions.md` |
 | Codex / Amp | `AGENTS.md` |
 | Gemini CLI | `GEMINI.md` |
+| Windsurf | `.windsurfrules` |
+| Cline | `.clinerules` |
 
 If you use more than one tool — and most teams do — you're maintaining these manually. They drift. Conventions you updated in `CLAUDE.md` are still wrong in `.cursorrules`. Your new database is still Postgres in Copilot's mind. A new engineer using Cursor gets guidance that contradicts what Claude Code users know.
 
@@ -42,7 +44,10 @@ Your codebase
      │
      ├──▶  CLAUDE.md          (superset + Claude Code-specific additions)
      ├──▶  .cursorrules       (directive-style, < 400 words)
-     └──▶  .github/copilot-instructions.md  (code-level focus, < 300 words)
+     ├──▶  .github/copilot-instructions.md  (code-level focus, < 300 words)
+     ├──▶  GEMINI.md          (full AGENTS.md + Gemini CLI section)
+     ├──▶  .windsurfrules     (directive-style, < 400 words)
+     └──▶  .clinerules        (Always/Never sections, < 400 words)
 ```
 
 ---
@@ -111,9 +116,13 @@ Add to `.cursor/mcp.json` in your project:
 
 ```
 ✓ AGENTS.md → /your/project/AGENTS.md
+✓ AGENTS.md → /your/project/AGENTS.md
 ✓ claude → /your/project/CLAUDE.md
 ✓ cursor → /your/project/.cursorrules
 ✓ copilot → /your/project/.github/copilot-instructions.md
+✓ gemini → /your/project/GEMINI.md
+✓ windsurf → /your/project/.windsurfrules
+✓ cline → /your/project/.clinerules
 
 ✓ Snapshot saved to .agents-sync/
   → Add AGENTS.md to git. Add .agents-sync/ to .gitignore.
@@ -168,6 +177,41 @@ AGENTS.md (canonical)  ✓
 
 Some files are out of sync. Run /agents-sync sync to fix.
 ```
+
+### Standalone CLI
+
+agents-sync also works as a standalone CLI without an MCP host:
+
+```bash
+# Initialize a project
+npx @googlarz/agents-sync init .
+
+# Check drift
+npx @googlarz/agents-sync drift .
+
+# Re-sync
+npx @googlarz/agents-sync sync .
+
+# Validate all files
+npx @googlarz/agents-sync validate .
+
+# Re-derive a single tool file (no Claude API call)
+npx @googlarz/agents-sync export cursor .
+
+# CI mode — exit 1 when drift is HIGH
+npx @googlarz/agents-sync drift . --ci
+```
+
+---
+
+## GitHub Action
+
+Keep context files in sync automatically. Copy [`docs/github-action.yml`](docs/github-action.yml) to `.github/workflows/agents-sync.yml` in your repo, then add `ANTHROPIC_API_KEY` to repository secrets.
+
+The workflow:
+- Runs every Monday at 9am UTC
+- Triggers on `package.json` / `pyproject.toml` / `Cargo.toml` / `go.mod` changes
+- Checks drift; when drift is HIGH, re-syncs and opens a PR
 
 ---
 

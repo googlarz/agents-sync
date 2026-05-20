@@ -3,6 +3,7 @@ import { scanStructure, type StructureData } from "./structure.js";
 import { sampleSource, type SourceData } from "./source.js";
 import { scanDocs, type DocData } from "./docs.js";
 import { scanGotchas, type Gotcha } from "./gotchas.js";
+import { parseRepomixOutput } from "./repomix.js";
 
 export type { ManifestData, StructureData, SourceData, DocData, Gotcha };
 
@@ -69,7 +70,12 @@ async function safeRun<T>(name: string, fn: () => Promise<T>, fallback: T): Prom
   }
 }
 
-export async function scan(projectPath: string): Promise<RawCorpus> {
+export interface ScanOptions {
+  /** Path to a repomix output file. When provided, replaces filesystem source sampling. */
+  repomixPath?: string;
+}
+
+export async function scan(projectPath: string, options: ScanOptions = {}): Promise<RawCorpus> {
   const start = Date.now();
 
   // Phase 1: manifest + structure in parallel
@@ -78,9 +84,13 @@ export async function scan(projectPath: string): Promise<RawCorpus> {
     safeRun("structure", () => scanStructure(projectPath), DEFAULT_STRUCTURE),
   ]);
 
-  // Phase 2: source + docs + gotchas in parallel
+  // Phase 2: source (or repomix) + docs + gotchas in parallel
+  const sourceRunner = options.repomixPath
+    ? () => parseRepomixOutput(options.repomixPath!)
+    : () => sampleSource(projectPath);
+
   const [source, docs, gotchas] = await Promise.all([
-    safeRun("source", () => sampleSource(projectPath), DEFAULT_SOURCE),
+    safeRun("source", sourceRunner, DEFAULT_SOURCE),
     safeRun("docs", () => scanDocs(projectPath), DEFAULT_DOCS),
     safeRun("gotchas", () => scanGotchas(projectPath), [] as Gotcha[]),
   ]);

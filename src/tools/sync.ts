@@ -10,12 +10,15 @@ import { deriveAll, type ToolName } from "../derivers/index.js";
 import { buildSnapshot, loadSnapshot, saveSnapshot, sha256 } from "../snapshot/writer.js";
 import { detectDrift } from "../snapshot/drift.js";
 import type { ManagedFile } from "../snapshot/schema.js";
+import { loadConfig, applyConfig } from "../config/loader.js";
 
 export interface SyncOptions {
   projectPath: string;
   tools?: ToolName[];
   fast?: boolean;    // skip re-extraction if only low drift
   dryRun?: boolean;
+  /** Path to a repomix output file to use as source corpus instead of filesystem sampling. */
+  repomixOutput?: string;
 }
 
 export interface SyncResult {
@@ -28,11 +31,17 @@ export interface SyncResult {
 }
 
 export async function runSync(options: SyncOptions): Promise<SyncResult> {
-  const { projectPath, tools, fast = false, dryRun = false } = options;
+  const { projectPath, tools, fast = false, dryRun = false, repomixOutput } = options;
   await assertProjectDir(projectPath);
 
-  // 1. Scan always
-  const corpus = await scan(projectPath);
+  // 1. Load team config (agents-sync.config.json) — non-fatal if missing
+  const config = await loadConfig(projectPath);
+
+  // 2. Resolve effective tool list: CLI flag > config > default (all)
+  const effectiveTools = tools ?? (config?.tools as ToolName[] | undefined);
+
+  // 3. Scan always (optionally using repomix output as source corpus)
+  const corpus = await scan(projectPath, { repomixPath: repomixOutput });
 
   // 2. Fast mode: check drift, skip extraction if only LOW signals
   let skipExtraction = false;
@@ -61,7 +70,8 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
     agentsMd = existing;
   } else {
     // Full re-extraction
-    const metadata = await extractMetadata(corpus);
+    const rawMetadata = await extractMetadata(corpus);
+    const metadata = applyConfig(rawMetadata, config);
     agentsMd = await generateAgentsMd(metadata);
     const validation = validateAgentsMd(agentsMd, corpus.structure.topLevelDirs);
 
@@ -74,7 +84,7 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
       projectPath,
       agentsMdContent: agentsMd,
       metadata,
-      tools,
+      tools: effectiveTools,
       dryRun,
     });
 
@@ -138,7 +148,7 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
     deployment: { notes: [] },
   };
 
-  const derivations = await deriveAll({ projectPath, agentsMdContent: agentsMd, metadata: stubMetadata, tools, dryRun });
+  const derivations = await deriveAll({ projectPath, agentsMdContent: agentsMd, metadata: stubMetadata, tools: effectiveTools, dryRun });
 
   return {
     success: true,

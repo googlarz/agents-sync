@@ -6,8 +6,11 @@ import { extractCustomBlocks } from "./merger.js";
 import { deriveClaudeMd } from "./claude.js";
 import { deriveCursorRules } from "./cursor.js";
 import { deriveCopilotInstructions } from "./copilot.js";
+import { deriveGeminiMd } from "./gemini.js";
+import { deriveWindsurfRules } from "./windsurf.js";
+import { deriveClineRules } from "./cline.js";
 
-export type ToolName = "claude" | "cursor" | "copilot";
+export type ToolName = "claude" | "cursor" | "copilot" | "gemini" | "windsurf" | "cline";
 
 export interface DerivationResult {
   tool: ToolName | "agents-md";
@@ -24,18 +27,20 @@ export interface DeriveAllOptions {
   projectPath: string;
   agentsMdContent: string;
   metadata: ProjectMetadata;
-  /** Tools to derive. Defaults to all three. */
+  /** Tools to derive. Defaults to all six. */
   tools?: ToolName[];
   dryRun?: boolean;
   /** @default true */
   preserveCustom?: boolean;
 }
 
+export const ALL_TOOLS: ToolName[] = ["claude", "cursor", "copilot", "gemini", "windsurf", "cline"];
+
 // ---------------------------------------------------------------------------
 // Tool → file-path mapping
 // ---------------------------------------------------------------------------
 
-function toolPath(projectPath: string, tool: ToolName): string {
+export function toolPath(projectPath: string, tool: ToolName): string {
   switch (tool) {
     case "claude":
       return path.join(projectPath, "CLAUDE.md");
@@ -43,6 +48,12 @@ function toolPath(projectPath: string, tool: ToolName): string {
       return path.join(projectPath, ".cursorrules");
     case "copilot":
       return path.join(projectPath, ".github", "copilot-instructions.md");
+    case "gemini":
+      return path.join(projectPath, "GEMINI.md");
+    case "windsurf":
+      return path.join(projectPath, ".windsurfrules");
+    case "cline":
+      return path.join(projectPath, ".clinerules");
   }
 }
 
@@ -64,6 +75,12 @@ async function deriveContent(
       return deriveCursorRules(shared);
     case "copilot":
       return deriveCopilotInstructions(shared);
+    case "gemini":
+      return deriveGeminiMd(shared);
+    case "windsurf":
+      return deriveWindsurfRules(shared);
+    case "cline":
+      return deriveClineRules(shared);
   }
 }
 
@@ -82,7 +99,7 @@ export async function deriveAll(options: DeriveAllOptions): Promise<DerivationRe
   const {
     projectPath,
     agentsMdContent,
-    tools = ["claude", "cursor", "copilot"],
+    tools = ALL_TOOLS,
     dryRun = false,
   } = options;
 

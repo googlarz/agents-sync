@@ -1,0 +1,29 @@
+# .clinerules — managed by agents-sync v1.0.0
+# Language: TypeScript / Next.js 14
+
+## Conventions
+
+- kebab-case filenames throughout
+- Named exports only (default exports for Next.js pages/layouts only)
+- Zod for all external input validation
+- Co-locate tests (Button.test.tsx next to Button.tsx)
+- Server components by default; 'use client' only when needed
+
+## Always
+
+- Run npm test before committing
+- Validate external API responses with Zod
+- Check middleware.ts before adding /api/ routes
+- Use src/lib/db.ts for all Prisma queries
+
+## Never
+
+- Commit .env or .env.local
+- Import PrismaClient directly (use src/lib/db.ts — pool exhaustion risk)
+- Use TypeScript any (use unknown and narrow)
+- Push directly to main
+- Use console.log in production
+
+## Tests
+
+`npm test`

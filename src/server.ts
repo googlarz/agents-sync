@@ -20,13 +20,13 @@ const server = new McpServer({
 
 server.tool(
   "agents_sync_init",
-  "Analyze a codebase and generate AGENTS.md + all tool-specific context files (CLAUDE.md, .cursorrules, copilot-instructions.md). Run this once per project.",
+  "Analyze a codebase and generate AGENTS.md + all tool-specific context files (CLAUDE.md, .cursorrules, copilot-instructions.md, GEMINI.md, .windsurfrules, .clinerules). Run this once per project.",
   {
     projectPath: z.string().describe("Absolute path to the project root directory"),
     tools: z
-      .array(z.enum(["claude", "cursor", "copilot"]))
+      .array(z.enum(["claude", "cursor", "copilot", "gemini", "windsurf", "cline"]))
       .optional()
-      .describe("Which tool files to generate. Default: all three."),
+      .describe("Which tool files to generate. Default: all six."),
     dryRun: z
       .boolean()
       .optional()
@@ -39,11 +39,15 @@ server.tool(
 
       if (result.dryRun) {
         lines.push("DRY RUN — no files written\n");
-      }
-
-      lines.push(`✓ AGENTS.md → ${result.agentsMdPath}`);
-      for (const f of result.filesWritten) {
-        lines.push(`✓ ${f.tool} → ${f.path}`);
+        lines.push(`→ Would write: ${result.agentsMdPath}`);
+        for (const f of result.filesWritten) {
+          lines.push(`→ Would write: ${f.path}`);
+        }
+      } else {
+        lines.push(`✓ AGENTS.md → ${result.agentsMdPath}`);
+        for (const f of result.filesWritten) {
+          lines.push(`✓ ${f.tool} → ${f.path}`);
+        }
       }
       if (result.customSectionsPreserved > 0) {
         lines.push(`\n  ${result.customSectionsPreserved} custom section(s) preserved from existing files`);
@@ -72,7 +76,7 @@ server.tool(
   {
     projectPath: z.string().describe("Absolute path to the project root directory"),
     tools: z
-      .array(z.enum(["claude", "cursor", "copilot"]))
+      .array(z.enum(["claude", "cursor", "copilot", "gemini", "windsurf", "cline"]))
       .optional()
       .describe("Which tool files to update. Default: all."),
     fast: z
@@ -89,7 +93,9 @@ server.tool(
       if (result.dryRun) lines.push("DRY RUN — no files written\n");
       if (result.skippedExtraction) lines.push("⚡ Fast mode: skipped re-extraction\n");
 
-      for (const f of result.filesUpdated) lines.push(`✓ ${f.tool} → ${f.path}`);
+      for (const f of result.filesUpdated) {
+        lines.push(result.dryRun ? `→ Would write: ${f.path}` : `✓ ${f.tool} → ${f.path}`);
+      }
 
       if (result.customSectionsPreserved > 0) {
         lines.push(`\n  ${result.customSectionsPreserved} custom section(s) preserved`);
@@ -142,7 +148,7 @@ server.tool(
   {
     projectPath: z.string().describe("Absolute path to the project root directory"),
     tool: z
-      .enum(["claude", "cursor", "copilot"])
+      .enum(["claude", "cursor", "copilot", "gemini", "windsurf", "cline"])
       .describe("Which tool file to regenerate"),
   },
   async ({ projectPath, tool }) => {

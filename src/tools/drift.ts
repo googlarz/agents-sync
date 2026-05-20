@@ -9,11 +9,13 @@ export interface DriftOptions {
 
 export interface DriftToolResult {
   hasSnapshot: boolean;
-  report?: string;
+  report: string;
   maxSeverity?: string;
   signalCount?: number;
   daysSinceSync?: number;
   recommendation?: string;
+  /** true when maxSeverity is HIGH — use to set CI exit code */
+  highDrift: boolean;
 }
 
 export async function runDrift(options: DriftOptions): Promise<DriftToolResult> {
@@ -23,6 +25,8 @@ export async function runDrift(options: DriftOptions): Promise<DriftToolResult> 
   if (!snapshot) {
     return {
       hasSnapshot: false,
+      report: "No snapshot found. Run init first.",
+      highDrift: false,
     };
   }
 
@@ -30,7 +34,7 @@ export async function runDrift(options: DriftOptions): Promise<DriftToolResult> 
   const result: DriftResult = detectDrift(snapshot, corpus);
 
   if (!result.hasSnapshot) {
-    return { hasSnapshot: false };
+    return { hasSnapshot: false, report: "No snapshot found. Run init first.", highDrift: false };
   }
 
   const report = formatDriftReport(result);
@@ -42,5 +46,6 @@ export async function runDrift(options: DriftOptions): Promise<DriftToolResult> 
     signalCount: result.signals.length,
     daysSinceSync: result.daysSinceSync,
     recommendation: result.recommendation,
+    highDrift: result.maxSeverity === "HIGH",
   };
 }

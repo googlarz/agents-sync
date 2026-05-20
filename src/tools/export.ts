@@ -14,6 +14,7 @@ export interface ExportResult {
   tool: ToolName;
   path: string;
   written: boolean;
+  report: string;
   error?: string;
 }
 
@@ -64,13 +65,18 @@ export async function runExport(options: ExportOptions): Promise<ExportResult> {
 
   const result = results.find((r) => r.tool === options.tool);
   if (!result) {
-    return { tool: options.tool, path: "", written: false, error: "No result from deriver" };
+    return { tool: options.tool, path: "", written: false, report: `✗ ${options.tool}: No result from deriver`, error: "No result from deriver" };
   }
+
+  const report = result.error
+    ? `✗ ${options.tool}: ${result.error}`
+    : `✓ ${options.tool} → ${result.path}`;
 
   return {
     tool: options.tool,
     path: result.path,
     written: result.written,
+    report,
     error: result.error,
   };
 }
