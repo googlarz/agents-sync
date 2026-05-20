@@ -55,7 +55,7 @@ EOF
 
 cat > /tmp/demo-fresh/src/lib/db.ts <<'EOF'
 // IMPORTANT: Never import db directly — use this singleton.
-// Direct imports exhaust the connection pool in serverless.
+// Direct imports exhaust the connection pool in serverless environments.
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
@@ -121,11 +121,12 @@ Internal analytics and task management platform for the sales team.
 Built with Next.js 14 App Router, Drizzle ORM, and Auth.js.
 EOF
 
-echo "→ Demo project ready"
+echo "→ Demo project ready (no generated files — init will run from scratch)"
 
 # ─── record ──────────────────────────────────────────────────────────────────
 
-echo "→ Recording GIF (init will call Claude API, ~15-20s)..."
+echo "→ Recording GIF..."
+echo "   Flow: init (~40s with loading messages) → ls → cat .cursorrules → change → drift"
 export ANTHROPIC_API_KEY
 vhs docs/demo.tape
 
