@@ -28,12 +28,7 @@ Sleep 400ms
 Enter
 Sleep 3500ms
 
-Type "node -e \"const fs=require('fs'),p=JSON.parse(fs.readFileSync('package.json'));p.dependencies['resend']='^3.0.0';fs.writeFileSync('package.json',JSON.stringify(p,null,2))\""
-Sleep 400ms
-Enter
-Sleep 600ms
-
-Type "mkdir workers && touch workers/email-worker.ts"
+Type "bash add-dep.sh && mkdir workers && touch workers/email-worker.ts"
 Sleep 400ms
 Enter
 Sleep 500ms

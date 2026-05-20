@@ -121,6 +121,18 @@ Internal analytics and task management platform for the sales team.
 Built with Next.js 14 App Router, Drizzle ORM, and Auth.js.
 EOF
 
+# Pre-write the dep-addition script so the tape can call it cleanly
+cat > /tmp/demo-fresh/add-dep.sh <<'EOF'
+#!/usr/bin/env bash
+node -e "
+const fs = require('fs');
+const p = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+p.dependencies['resend'] = '^3.0.0';
+fs.writeFileSync('package.json', JSON.stringify(p, null, 2));
+"
+EOF
+chmod +x /tmp/demo-fresh/add-dep.sh
+
 echo "→ Demo project ready (no generated files — init will run from scratch)"
 
 # ─── record ──────────────────────────────────────────────────────────────────
