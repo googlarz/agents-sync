@@ -51,6 +51,20 @@ This is [GitHub issue #6235](https://github.com/anthropics/claude-code/issues/62
 
 ---
 
+## Why Not Just Write CLAUDE.md Once?
+
+You can. If you only use Claude Code and your stack never changes.
+
+It doesn't stay written once.
+
+**It goes stale silently.** Add drizzle-orm, rename `src/features/` to `src/modules/`, onboard a new dev who restructures things — your context file is now wrong. You won't notice until an AI confidently generates a Prisma migration two weeks after you switched to Drizzle.
+
+**You need nine files, not one.** `CLAUDE.md` covers Claude Code. Your colleague uses Cursor. CI runs Copilot suggestions. New hires bring Windsurf or Cline. Each tool has its own format, its own instructions, and its own staleness clock. A manually-maintained `CLAUDE.md` leaves everyone else with nothing.
+
+**agents-sync closes the loop:** scan actual code → Claude extracts architecture and conventions → canonical `AGENTS.md` → all nine files derived automatically. Run once. Drift detected at every commit. Re-sync in seconds when it matters. The context files stop being something you remember to update and become something that's just always correct.
+
+---
+
 ## Quick Start
 
 **Step 1 — scan your project (no API key, no cost):**
