@@ -516,6 +516,7 @@ Typically $0.05–0.10 using `claude-sonnet-4-6`. Syncs on previously-indexed pr
 | Variable | Required | Description |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | For `init` and `sync` only | Your Anthropic API key |
+| `AGENTS_SYNC_MODEL` | No | Override the Claude model (e.g. `claude-haiku-4-5-20251001` for faster/cheaper runs) |
 | `AGENTS_SYNC_DEBUG=1` | No | Verbose debug output to stderr |
 | `NO_COLOR=1` | No | Disable ANSI color |
 
