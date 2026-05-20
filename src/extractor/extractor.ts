@@ -34,7 +34,7 @@ export async function extractMetadata(corpus: RawCorpus): Promise<ProjectMetadat
     try {
       const raw = extractJson(content);
       return ProjectMetadataSchema.parse(raw);
-    } catch (e) {
+    } catch {
       if (attempt === 2) {
         throw new AgentsSyncError(
           "EXTRACTION_FAILED",
