@@ -1,5 +1,17 @@
 # agents-sync
 
+[![npm version](https://img.shields.io/npm/v/@googlarz/agents-sync?style=flat-square)](https://www.npmjs.com/package/@googlarz/agents-sync)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18-green?style=flat-square)](https://nodejs.org)
+![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white)
+![macOS](https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black)
+
+[![Claude Code](https://img.shields.io/badge/Claude_Code-✓-orange?style=flat-square)](https://claude.ai/code)
+[![Cursor](https://img.shields.io/badge/Cursor-✓-blue?style=flat-square)](https://cursor.com)
+[![Codex CLI](https://img.shields.io/badge/Codex_CLI-✓-412991?style=flat-square)](https://github.com/openai/codex)
+[![opencode](https://img.shields.io/badge/opencode-✓-8B5CF6?style=flat-square)](https://opencode.ai)
+
 **Write your AI context once. Stay in sync everywhere.**
 
 `agents-sync` reads your codebase, generates a canonical `AGENTS.md`, and automatically derives tool-specific files for every AI coding tool you use — Claude Code, Cursor, GitHub Copilot, and more.
@@ -18,6 +30,7 @@ Every AI coding tool expects its own context file:
 | Cursor | `.cursorrules` |
 | GitHub Copilot | `.github/copilot-instructions.md` |
 | Codex / Amp | `AGENTS.md` |
+| opencode | `AGENTS.md` |
 | Gemini CLI | `GEMINI.md` |
 | Windsurf | `.windsurfrules` |
 | Cline | `.clinerules` |
@@ -45,6 +58,7 @@ Your codebase
      ▼
 [generate]  canonical AGENTS.md  ←─── one source of truth
      │
+     ├──▶  AGENTS.md         (canonical — read directly by Codex CLI and opencode)
      ├──▶  CLAUDE.md          (superset + Claude Code-specific additions, skill recommendations)
      ├──▶  .cursorrules       (directive-style, < 400 words)
      ├──▶  .github/copilot-instructions.md  (code-level focus, < 300 words)
