@@ -567,6 +567,12 @@ Language-agnostic — works on any codebase with a manifest file.
 
 ---
 
+## Related Tools
+
+**[cc-safe-setup](https://github.com/yurukusa/cc-safe-setup)** — if you want Claude Code to load `AGENTS.md` natively today without generating a `CLAUDE.md`, install their `agents-md-loader` SessionStart hook. It walks up to the git root, finds `AGENTS.md`, and surfaces it to Claude Code as a system reminder. Works well alongside agents-sync for teams that want the reading side covered while the [upstream feature](https://github.com/anthropics/claude-code/issues/6235) is still open.
+
+---
+
 ## Contributing
 
 ```bash
