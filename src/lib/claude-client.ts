@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { AgentsSyncError } from "./errors.js";
 
-const MODEL = "claude-sonnet-4-6";
+const MODEL = process.env.AGENTS_SYNC_MODEL ?? "claude-sonnet-4-6";
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
 

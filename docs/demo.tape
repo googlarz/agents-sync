@@ -16,7 +16,7 @@ Show
 Type "agents-sync init ."
 Sleep 500ms
 Enter
-Sleep 42s
+Sleep 23s
 
 Type "ls"
 Sleep 400ms

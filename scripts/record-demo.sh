@@ -138,8 +138,9 @@ echo "→ Demo project ready (no generated files — init will run from scratch)
 # ─── record ──────────────────────────────────────────────────────────────────
 
 echo "→ Recording GIF..."
-echo "   Flow: init (~40s with loading messages) → ls → cat .cursorrules → change → drift"
+echo "   Flow: init (~10s with Haiku) → ls → cat .cursorrules → change → drift"
 export ANTHROPIC_API_KEY
+export AGENTS_SYNC_MODEL="claude-haiku-4-5-20251001"
 vhs docs/demo.tape
 
 echo "✓ Saved to docs/demo.gif"
