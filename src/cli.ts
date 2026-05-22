@@ -9,6 +9,7 @@
  *   npx @googlarz/agents-sync drift [path]     Check what changed
  *   npx @googlarz/agents-sync validate [path]  Check files are in sync
  *   npx @googlarz/agents-sync status [path]    Show sync status
+ *   npx @googlarz/agents-sync derive [path]    Re-derive all files from AGENTS.md (no API)
  *   npx @googlarz/agents-sync export <tool> [path]  Re-derive a single file
  *   npx @googlarz/agents-sync install-hook [path]   Install pre-commit drift check
  */
@@ -59,8 +60,9 @@ COMMANDS
   scan [path]               Show what agents-sync detected (no API key needed)
   lint [path]               Verify codebase against 'Never' rules in AGENTS.md
   status [path]             Show sync status and managed files
+  derive [path]             Re-derive all tool files from AGENTS.md (no API call)
   export <tool> [path]      Re-derive a single tool file (no API call)
-                            Tools: claude, cursor, copilot, gemini, windsurf, cline, roo, aider
+                            Tools: claude, cursor, copilot, gemini, windsurf, cline, roo, aider, kiro, trae
   install-hook [path]       Install pre-commit hook that blocks commits when drift is HIGH
                             Auto-detects husky, lefthook, or plain git hooks
   uninstall-hook [path]     Remove the agents-sync pre-commit hook
@@ -75,8 +77,8 @@ OPTIONS
   --husky                   install-hook — force husky hook manager
   --lefthook                install-hook — force lefthook hook manager
   --git                     install-hook — force plain git hooks
-  --tools <list>            Comma-separated tools to generate (init/sync)
-                            e.g. --tools claude,cursor,roo,aider
+  --tools <list>            Comma-separated tools to generate (init/sync/derive)
+                            e.g. --tools claude,cursor,kiro,trae
   --repomix-output <file>   Use repomix XML/text output as source corpus
                             (init/sync) instead of filesystem sampling
   --version, -v             Print version
@@ -257,12 +259,26 @@ async function runCli(): Promise<void> {
       break;
     }
 
+    case "derive": {
+      const { runDerive } = await import("./tools/derive.js");
+      const projectPath = resolvePath(positional[1]);
+      const tools = getTools() as Parameters<typeof runDerive>[0]["tools"];
+      const result = await runDerive({ projectPath, tools, dryRun });
+      for (const f of result.filesUpdated) {
+        process.stdout.write(`✓ ${f.tool} → ${f.path}\n`);
+      }
+      for (const w of result.warnings) {
+        process.stdout.write(`  → ${w}\n`);
+      }
+      break;
+    }
+
     case "export": {
       const { runExport } = await import("./tools/export.js");
       const tool = positional[1];
       const projectPath = resolvePath(positional[2]);
-      const VALID_EXPORT_TOOLS = ["claude", "cursor", "copilot", "gemini", "windsurf", "cline", "roo", "aider"] as const;
-      if (!tool) die("export requires a tool name: claude, cursor, copilot, gemini, windsurf, cline, roo, aider");
+      const VALID_EXPORT_TOOLS = ["claude", "cursor", "copilot", "gemini", "windsurf", "cline", "roo", "aider", "kiro", "trae"] as const;
+      if (!tool) die("export requires a tool name: claude, cursor, copilot, gemini, windsurf, cline, roo, aider, kiro, trae");
       if (!VALID_EXPORT_TOOLS.includes(tool as typeof VALID_EXPORT_TOOLS[number])) {
         die(`unknown tool: "${tool}". Valid tools: ${VALID_EXPORT_TOOLS.join(", ")}`);
       }

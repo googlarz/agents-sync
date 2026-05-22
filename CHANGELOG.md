@@ -4,6 +4,21 @@ All notable changes to `@googlarz/agents-sync` are documented here.
 
 ---
 
+## [1.5.7] — 2026-05-22
+
+### Added
+- **Kiro IDE support** — derives `.kiro/steering/agents-sync.md` (Amazon Kiro uses steering docs for AI context)
+- **Trae IDE support** — derives `.trae/rules/agents-sync.md` (ByteDance Trae VS Code fork)
+- **`derive` command / MCP tool** — re-derives all tool files from the current AGENTS.md without re-running the scanner or calling the Claude API; use after manually editing AGENTS.md
+- **Codegraph section in AGENTS.md** — when a `.codegraph/` index is present, `init`/`sync` appends a Code Graph section surfacing hub nodes and communities
+- **Fast sync refreshes MCP + codegraph sections** — free, no API call required; prints ⚡ notice when fast mode is active
+- **Drift detects deleted managed files** — if `.cursorrules`, `.kiro/steering/agents-sync.md`, or any other managed file is deleted, `drift` now flags HIGH severity
+
+### Tests
+- 20 new unit tests: kiro deriver (10), trae deriver (10)
+
+---
+
 ## [1.5.6] — 2026-05-22
 
 ### Fixed

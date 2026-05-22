@@ -1,4 +1,5 @@
 import path from "node:path";
+import fs from "node:fs/promises";
 import crypto from "node:crypto";
 import type { ProjectMetadata } from "../extractor/schema.js";
 import { writeFileAtomic } from "../lib/file-utils.js";
@@ -12,8 +13,10 @@ import { deriveWindsurfRules } from "./windsurf.js";
 import { deriveClineRules } from "./cline.js";
 import { deriveRooModes } from "./roo.js";
 import { deriveAiderConventions } from "./aider.js";
+import { deriveKiroSteering, ensureKiroDir } from "./kiro.js";
+import { deriveTraeRules, ensureTraeDir } from "./trae.js";
 
-export type ToolName = "claude" | "cursor" | "copilot" | "gemini" | "windsurf" | "cline" | "roo" | "aider";
+export type ToolName = "claude" | "cursor" | "copilot" | "gemini" | "windsurf" | "cline" | "roo" | "aider" | "kiro" | "trae";
 
 export interface DerivationResult {
   tool: ToolName | "agents-md";
@@ -32,14 +35,14 @@ export interface DeriveAllOptions {
   projectPath: string;
   agentsMdContent: string;
   metadata: ProjectMetadata;
-  /** Tools to derive. Defaults to all six. */
+  /** Tools to derive. Defaults to all tools. */
   tools?: ToolName[];
   dryRun?: boolean;
   /** @default true */
   preserveCustom?: boolean;
 }
 
-export const ALL_TOOLS: ToolName[] = ["claude", "cursor", "copilot", "gemini", "windsurf", "cline", "roo", "aider"];
+export const ALL_TOOLS: ToolName[] = ["claude", "cursor", "copilot", "gemini", "windsurf", "cline", "roo", "aider", "kiro", "trae"];
 
 // ---------------------------------------------------------------------------
 // Tool → file-path mapping
@@ -63,6 +66,27 @@ export function toolPath(projectPath: string, tool: ToolName): string {
       return path.join(projectPath, ".roomodes");
     case "aider":
       return path.join(projectPath, "CONVENTIONS.md");
+    case "kiro":
+      return path.join(projectPath, ".kiro", "steering", "agents-sync.md");
+    case "trae":
+      return path.join(projectPath, ".trae", "rules", "agents-sync.md");
+  }
+}
+
+/** Ensure any parent directories required by a tool exist before writing. */
+async function ensureToolDir(projectPath: string, tool: ToolName): Promise<void> {
+  switch (tool) {
+    case "copilot":
+      await fs.mkdir(path.join(projectPath, ".github"), { recursive: true });
+      break;
+    case "kiro":
+      await ensureKiroDir(projectPath);
+      break;
+    case "trae":
+      await ensureTraeDir(projectPath);
+      break;
+    default:
+      break;
   }
 }
 
@@ -94,6 +118,10 @@ async function deriveContent(
       return deriveRooModes(shared);
     case "aider":
       return deriveAiderConventions(shared);
+    case "kiro":
+      return deriveKiroSteering(shared);
+    case "trae":
+      return deriveTraeRules(shared);
   }
 }
 
@@ -161,6 +189,7 @@ export async function deriveAll(options: DeriveAllOptions): Promise<DerivationRe
         continue;
       }
 
+      await ensureToolDir(projectPath, tool);
       await writeFileAtomic(filePath, content);
 
       results.push({

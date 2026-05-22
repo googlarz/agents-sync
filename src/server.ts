@@ -11,8 +11,9 @@ import { runStatus } from "./tools/status.js";
 import { runLint } from "./tools/lint.js";
 import { runScanReport } from "./tools/scan-report.js";
 import { runInstallHook, runUninstallHook } from "./tools/install-hook.js";
+import { runDerive } from "./tools/derive.js";
 
-const VERSION = "1.5.6";
+const VERSION = "1.5.7";
 
 const server = new McpServer({
   name: "agents-sync",
@@ -23,13 +24,13 @@ const server = new McpServer({
 
 server.tool(
   "agents_sync_init",
-  "Analyze a codebase and generate AGENTS.md + all tool-specific context files (CLAUDE.md, .cursorrules, copilot-instructions.md, GEMINI.md, .windsurfrules, .clinerules). Run this once per project.",
+  "Analyze a codebase and generate AGENTS.md + all tool-specific context files (CLAUDE.md, .cursorrules, copilot-instructions.md, GEMINI.md, .windsurfrules, .clinerules, .kiro/steering/, .trae/rules/). Run this once per project.",
   {
     projectPath: z.string().describe("Absolute path to the project root directory"),
     tools: z
-      .array(z.enum(["claude", "cursor", "copilot", "gemini", "windsurf", "cline", "roo", "aider"]))
+      .array(z.enum(["claude", "cursor", "copilot", "gemini", "windsurf", "cline", "roo", "aider", "kiro", "trae"]))
       .optional()
-      .describe("Which tool files to generate. Default: all six."),
+      .describe("Which tool files to generate. Default: all ten."),
     dryRun: z
       .boolean()
       .optional()
@@ -79,7 +80,7 @@ server.tool(
   {
     projectPath: z.string().describe("Absolute path to the project root directory"),
     tools: z
-      .array(z.enum(["claude", "cursor", "copilot", "gemini", "windsurf", "cline", "roo", "aider"]))
+      .array(z.enum(["claude", "cursor", "copilot", "gemini", "windsurf", "cline", "roo", "aider", "kiro", "trae"]))
       .optional()
       .describe("Which tool files to update. Default: all."),
     fast: z
@@ -156,7 +157,7 @@ server.tool(
   {
     projectPath: z.string().describe("Absolute path to the project root directory"),
     tool: z
-      .enum(["claude", "cursor", "copilot", "gemini", "windsurf", "cline", "roo", "aider"])
+      .enum(["claude", "cursor", "copilot", "gemini", "windsurf", "cline", "roo", "aider", "kiro", "trae"])
       .describe("Which tool file to regenerate"),
   },
   async ({ projectPath, tool }) => {
@@ -348,6 +349,45 @@ server.tool(
     try {
       const result = await runUninstallHook({ projectPath, manager, dryRun });
       return { content: [{ type: "text" as const, text: result.report }] };
+    } catch (e) {
+      return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
+    }
+  },
+);
+
+// ─── agents_sync_derive ──────────────────────────────────────────────────────
+
+server.tool(
+  "agents_sync_derive",
+  "Re-derive all tool files from the current AGENTS.md without re-running the scanner or calling the Claude API. Use after manually editing AGENTS.md.",
+  {
+    projectPath: z.string().describe("Absolute path to the project root directory"),
+    tools: z
+      .array(z.enum(["claude", "cursor", "copilot", "gemini", "windsurf", "cline", "roo", "aider", "kiro", "trae"]))
+      .optional()
+      .describe("Which tool files to re-derive. Default: all."),
+    dryRun: z.boolean().optional().describe("Preview changes without writing files."),
+  },
+  async ({ projectPath, tools, dryRun }) => {
+    try {
+      const result = await runDerive({ projectPath, tools, dryRun });
+      const lines: string[] = [];
+
+      if (result.dryRun) lines.push("DRY RUN — no files written\n");
+
+      for (const f of result.filesUpdated) {
+        lines.push(result.dryRun ? `→ Would write: ${f.path}` : `✓ ${f.tool} → ${f.path}`);
+      }
+
+      if (result.customSectionsPreserved > 0) {
+        lines.push(`\n  ${result.customSectionsPreserved} custom section(s) preserved`);
+      }
+      if (result.warnings.length > 0) {
+        lines.push("\nWarnings:");
+        for (const w of result.warnings) lines.push(`  ⚠ ${w}`);
+      }
+
+      return { content: [{ type: "text" as const, text: lines.join("\n") }] };
     } catch (e) {
       return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
     }

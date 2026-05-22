@@ -4,7 +4,7 @@
 
 **Write your AI context once. Every tool stays in sync — automatically.**
 
-**9 AI tools · drifts detected in milliseconds · 100% local · ~$0.05–0.10 per sync**
+**11 AI tools · drifts detected in milliseconds · 100% local · ~$0.05–0.10 per sync**
 
 [![npm](https://img.shields.io/npm/v/@googlarz/agents-sync?style=flat-square&label=npm)](https://www.npmjs.com/package/@googlarz/agents-sync)
 [![License](https://img.shields.io/badge/License-MIT-8B9500?style=flat-square)](LICENSE)
@@ -18,6 +18,8 @@
 [![Cursor](https://img.shields.io/badge/Cursor-supported-7C3AED?style=flat-square)](https://cursor.com)
 [![Codex CLI](https://img.shields.io/badge/Codex_CLI-supported-7C3AED?style=flat-square)](https://github.com/openai/codex)
 [![opencode](https://img.shields.io/badge/opencode-supported-7C3AED?style=flat-square)](https://opencode.ai)
+[![Kiro](https://img.shields.io/badge/Kiro-supported-7C3AED?style=flat-square)](https://kiro.dev)
+[![Trae](https://img.shields.io/badge/Trae-supported-7C3AED?style=flat-square)](https://trae.ai)
 
 <br/>
 
@@ -50,6 +52,8 @@ Every AI coding tool expects its own context file:
 | Cline | `.clinerules` |
 | Roo Code | `.roomodes` |
 | Aider | `CONVENTIONS.md` |
+| Kiro (Amazon) | `.kiro/steering/agents-sync.md` |
+| Trae (ByteDance) | `.trae/rules/agents-sync.md` |
 
 Maintain them manually and they drift. `agents-sync` generates all of them from a single canonical `AGENTS.md` — derived from your actual codebase, updated whenever your stack changes.
 
@@ -67,7 +71,7 @@ It doesn't stay written once.
 
 **You need nine files, not one.** `CLAUDE.md` covers Claude Code. Your colleague uses Cursor. CI runs Copilot suggestions. New hires bring Windsurf or Cline. Each tool has its own format, its own instructions, and its own staleness clock. A manually-maintained `CLAUDE.md` leaves everyone else with nothing.
 
-**agents-sync closes the loop:** scan actual code → Claude extracts architecture and conventions → canonical `AGENTS.md` → all nine files derived automatically. Run once. Drift detected at every commit. Re-sync in seconds when it matters. The context files stop being something you remember to update and become something that's just always correct.
+**agents-sync closes the loop:** scan actual code → Claude extracts architecture and conventions → canonical `AGENTS.md` → all eleven files derived automatically. Run once. Drift detected at every commit. Re-sync in seconds when it matters. The context files stop being something you remember to update and become something that's just always correct.
 
 **One more thing worth knowing:** Claude Code [silently drops `CLAUDE.md` rules after context compaction](https://github.com/anthropics/claude-code/issues/40459) — your carefully-generated instructions vanish mid-session without warning. agents-sync can't fix that (it's a Claude Code bug), but [cc-safe-setup](https://github.com/yurukusa/cc-safe-setup)'s `subagent-claudemd-inject` hook re-injects critical rules into subagent prompts as a mitigation.
 
@@ -136,6 +140,8 @@ ANTHROPIC_API_KEY=sk-ant-... npx @googlarz/agents-sync init .
 ✓ cline    → /your/project/.clinerules
 ✓ roo      → /your/project/.roomodes
 ✓ aider    → /your/project/CONVENTIONS.md
+✓ kiro     → /your/project/.kiro/steering/agents-sync.md
+✓ trae     → /your/project/.trae/rules/agents-sync.md
 
 ✓ Snapshot saved to .agents-sync/
 ```
@@ -291,7 +297,7 @@ Add to `~/.config/opencode/config.json`:
 }
 ```
 
-> **Codex / opencode users:** agents-sync uses the Anthropic API only for `init` and `sync`. All read commands (`scan`, `drift`, `lint`, `validate`, `status`, `export`) make zero API calls. The free tier at [console.anthropic.com](https://console.anthropic.com/) covers occasional syncs.
+> **Codex / opencode users:** agents-sync uses the Anthropic API only for `init` and `sync`. All read commands (`scan`, `drift`, `derive`, `lint`, `validate`, `status`, `export`) make zero API calls. The free tier at [console.anthropic.com](https://console.anthropic.com/) covers occasional syncs.
 
 ---
 
@@ -331,6 +337,16 @@ ANTHROPIC_API_KEY=sk-ant-... npx @googlarz/agents-sync sync .
 
   2 custom section(s) preserved
 ```
+
+### Re-derive after manual AGENTS.md edits
+
+Edited `AGENTS.md` by hand and want all tool files to reflect your changes without an API call?
+
+```bash
+npx @googlarz/agents-sync derive .
+```
+
+This re-runs all derivers from the current `AGENTS.md` content — no scanner, no Claude API. Useful after fixing a typo, adding a custom section, or tweaking a convention.
 
 ### Lint — enforce your own rules
 
@@ -377,14 +393,15 @@ npx @googlarz/agents-sync drift .                    # Check what changed
 npx @googlarz/agents-sync lint .                     # Verify codebase against Never rules
 npx @googlarz/agents-sync validate .                 # Check files match AGENTS.md
 npx @googlarz/agents-sync validate . --strict        # Exit 1 when any file drifted (CI)
+npx @googlarz/agents-sync derive .                   # Re-derive all files from AGENTS.md (no API)
 npx @googlarz/agents-sync export cursor .            # Re-derive one file (no API call)
 npx @googlarz/agents-sync status .                   # Show sync status
 
 npx @googlarz/agents-sync drift . --ci               # Exit 1 on HIGH drift (CI)
 npx @googlarz/agents-sync lint . --ci                # Exit 1 on any violation (CI)
 npx @googlarz/agents-sync init . --dry-run           # Preview without writing
-npx @googlarz/agents-sync init . --tools claude,cursor,roo   # Specific tools only
-npx @googlarz/agents-sync sync . --fast              # Skip API call if drift is minor
+npx @googlarz/agents-sync init . --tools claude,cursor,kiro,trae  # Specific tools only
+npx @googlarz/agents-sync sync . --fast              # Skip API call if drift is minor (still refreshes MCP + codegraph)
 
 npx @googlarz/agents-sync install-hook .             # Block commits when drift is HIGH
 npx @googlarz/agents-sync install-hook . --dry-run   # Preview what would be installed
@@ -490,7 +507,9 @@ Your codebase
      ├──▶  .windsurfrules     (directive-style, < 400 words)
      ├──▶  .clinerules        (Always/Never sections, < 400 words)
      ├──▶  .roomodes          (Roo Code custom modes)
-     └──▶  CONVENTIONS.md    (Aider conventions file)
+     ├──▶  CONVENTIONS.md    (Aider conventions file)
+     ├──▶  .kiro/steering/agents-sync.md  (Kiro IDE steering doc)
+     └──▶  .trae/rules/agents-sync.md     (Trae IDE rules)
 ```
 
 The scanner runs entirely locally. Only the extract step calls the API. Drift detection, validation, lint, and export are all local.
@@ -524,6 +543,33 @@ Typically $0.05–0.10 using `claude-sonnet-4-6`. Syncs on previously-indexed pr
 
 ---
 
+## Team Config — `agents-sync.config.json`
+
+Pin tools and override extraction results for your whole team. Drop a file at the project root:
+
+```json
+{
+  "tools": ["claude", "cursor", "copilot", "kiro"],
+  "project": {
+    "name": "my-app",
+    "description": "Internal analytics dashboard"
+  },
+  "conventions": [
+    "All API routes must have an OpenAPI annotation"
+  ],
+  "boundaries": {
+    "never": ["Merge to main without a passing CI run"]
+  }
+}
+```
+
+- `tools` — limit which files get generated (omit to generate all)
+- `project`, `conventions`, `boundaries` — override/extend Claude's extracted values
+
+The config is loaded on every `init`/`sync`. Changes take effect on the next sync.
+
+---
+
 ## Environment Variables
 
 | Variable | Required | Description |
@@ -533,7 +579,7 @@ Typically $0.05–0.10 using `claude-sonnet-4-6`. Syncs on previously-indexed pr
 | `AGENTS_SYNC_DEBUG=1` | No | Verbose debug output to stderr |
 | `NO_COLOR=1` | No | Disable ANSI color |
 
-`scan`, `drift`, `validate`, `status`, `export`, and `lint` never call the API.
+`scan`, `drift`, `derive`, `validate`, `status`, `export`, and `lint` never call the API.
 
 ---
 
@@ -546,6 +592,7 @@ Typically $0.05–0.10 using `claude-sonnet-4-6`. Syncs on previously-indexed pr
 | `agents_sync_init` | Full init: scan, extract, generate, derive, snapshot |
 | `agents_sync_sync` | Re-sync from current codebase state |
 | `agents_sync_drift` | Check what changed since last sync (read-only) |
+| `agents_sync_derive` | Re-derive all tool files from AGENTS.md (no API call) |
 | `agents_sync_export` | Re-derive a single tool file (no API call) |
 | `agents_sync_validate` | Check if all tool files match AGENTS.md |
 | `agents_sync_status` | Show sync status and managed files |
@@ -593,7 +640,7 @@ git clone https://github.com/googlarz/agents-sync
 cd agents-sync
 npm install
 npm run dev   # watch mode
-npm test      # 116 unit tests, no API key needed
+npm test      # 189 unit tests, no API key needed
 ```
 
 Integration tests (require `ANTHROPIC_API_KEY`, run against real fixtures):

@@ -55,6 +55,19 @@ export async function runDrift(options: DriftOptions): Promise<DriftToolResult> 
     };
   }
 
+  // Check for managed tool files deleted from disk — catches e.g. deleted .cursorrules
+  for (const managed of snapshot.filesManaged) {
+    if (managed.tool === "agents-md") continue; // already checked above
+    if (!(await fileExists(managed.path))) {
+      result.signals.push({
+        severity: "HIGH",
+        message: `Managed file deleted: ${path.basename(managed.path)}`,
+        detail: `${managed.path} is missing — run sync to restore`,
+      });
+      result.maxSeverity = "HIGH";
+    }
+  }
+
   // Augment with semantic drift — contradictions between AGENTS.md claims and current stack
   const agentsMd = await readFileSafe(agentsMdPath);
   if (agentsMd) {

@@ -3,6 +3,8 @@ import { AgentsSyncError } from "../lib/errors.js";
 import type { ProjectMetadata } from "../extractor/schema.js";
 import type { McpScanResult } from "../scanner/mcp.js";
 import { formatMcpSection } from "../scanner/mcp.js";
+import type { CodegraphSummary } from "../scanner/codegraph.js";
+import { formatCodegraphContext } from "../scanner/codegraph.js";
 
 const SYSTEM_PROMPT = `You are writing an AGENTS.md file — the canonical AI context file for a software project.
 
@@ -61,6 +63,14 @@ const TEMPLATE = `# AGENTS.md
 export function appendMcpSection(agentsMd: string, mcp: McpScanResult): string {
   if (!mcp.hasAny) return agentsMd;
   const section = formatMcpSection(mcp);
+  return `${agentsMd.trimEnd()}\n\n${section}`;
+}
+
+/** Appends a Code Graph section from .codegraph/ data if the index was found. */
+export function appendCodegraphSection(agentsMd: string, codegraph: CodegraphSummary): string {
+  if (!codegraph.available) return agentsMd;
+  const section = formatCodegraphContext(codegraph);
+  if (!section) return agentsMd;
   return `${agentsMd.trimEnd()}\n\n${section}`;
 }
 

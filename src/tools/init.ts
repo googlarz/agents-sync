@@ -2,7 +2,7 @@ import path from "node:path";
 import { assertProjectDir, readFileSafe, writeFileAtomic } from "../lib/file-utils.js";
 import { scan } from "../scanner/index.js";
 import { extractMetadata } from "../extractor/extractor.js";
-import { generateAgentsMd, appendMcpSection } from "../generator/agents-md.js";
+import { generateAgentsMd, appendMcpSection, appendCodegraphSection } from "../generator/agents-md.js";
 import { validateAgentsMd } from "../generator/validator.js";
 import { deriveAll, type ToolName } from "../derivers/index.js";
 import { buildSnapshot, saveSnapshot, sha256 } from "../snapshot/writer.js";
@@ -51,7 +51,7 @@ export async function runInit(options: InitOptions): Promise<InitResult> {
   const effectiveTools = tools ?? (config?.tools as ToolName[] | undefined);
 
   // 5. Generate AGENTS.md, then append MCP section if servers detected
-  const agentsMd = appendMcpSection(await generateAgentsMd(metadata), corpus.mcp);
+  const agentsMd = appendCodegraphSection(appendMcpSection(await generateAgentsMd(metadata), corpus.mcp), corpus.codegraph);
 
   // 6. Validate
   const validation = validateAgentsMd(agentsMd, corpus.structure.topLevelDirs);
