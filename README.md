@@ -413,7 +413,9 @@ Auto-detects your hook manager — **husky**, **lefthook**, or plain **git hooks
 
 ```sh
 # .husky/pre-commit
-npx @googlarz/agents-sync drift . --ci
+if git diff --cached --name-only | grep -qE '(package\.json|pyproject\.toml|Cargo\.toml|go\.mod|pom\.xml|build\.gradle|Gemfile|composer\.json|AGENTS\.md|CLAUDE\.md|\.cursorrules|GEMINI\.md|\.windsurfrules|\.clinerules|\.roomodes|CONVENTIONS\.md)'; then
+  npx @googlarz/agents-sync drift . --ci
+fi
 ```
 
 </details>
@@ -426,6 +428,7 @@ npx @googlarz/agents-sync drift . --ci
 pre-commit:
   commands:
     agents-sync:
+      glob: "{package.json,pyproject.toml,Cargo.toml,go.mod,pom.xml,build.gradle,Gemfile,composer.json,AGENTS.md,CLAUDE.md,.cursorrules,GEMINI.md,.windsurfrules,.clinerules,.roomodes,CONVENTIONS.md}"
       run: npx @googlarz/agents-sync drift . --ci
       fail_text: "AI context files are out of sync. Run: npx @googlarz/agents-sync sync ."
 ```
@@ -437,10 +440,12 @@ pre-commit:
 
 ```sh
 # .git/hooks/pre-commit
-npx @googlarz/agents-sync drift . --ci
-if [ $? -ne 0 ]; then
-  echo "AI context files are out of sync. Run: npx @googlarz/agents-sync sync ."
-  exit 1
+if git diff --cached --name-only | grep -qE '(package\.json|pyproject\.toml|Cargo\.toml|go\.mod|pom\.xml|build\.gradle|Gemfile|composer\.json|AGENTS\.md|CLAUDE\.md|\.cursorrules|GEMINI\.md|\.windsurfrules|\.clinerules|\.roomodes|CONVENTIONS\.md)'; then
+  npx @googlarz/agents-sync drift . --ci
+  if [ $? -ne 0 ]; then
+    echo "AI context files are out of sync. Run: npx @googlarz/agents-sync sync ."
+    exit 1
+  fi
 fi
 ```
 

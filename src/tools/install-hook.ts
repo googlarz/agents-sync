@@ -28,6 +28,17 @@ export interface InstallHookResult {
 const DRIFT_COMMAND = "npx @googlarz/agents-sync drift . --ci";
 const FAIL_MESSAGE = "AI context files are out of sync. Run: npx @googlarz/agents-sync sync .";
 
+// Files whose changes are relevant to drift — manifest files and all managed context files.
+// The hook skips the drift check when none of these are staged, avoiding overhead on
+// routine commits (e.g. editing a single source file).
+const RELEVANT_FILES_PATTERN =
+  "(package\\.json|pyproject\\.toml|Cargo\\.toml|go\\.mod|pom\\.xml|build\\.gradle|Gemfile|composer\\.json" +
+  "|AGENTS\\.md|CLAUDE\\.md|\\.cursorrules|GEMINI\\.md|\\.windsurfrules|\\.clinerules|\\.roomodes|CONVENTIONS\\.md)";
+
+const RELEVANT_FILES_GLOB =
+  "{package.json,pyproject.toml,Cargo.toml,go.mod,pom.xml,build.gradle,Gemfile,composer.json" +
+  ",AGENTS.md,CLAUDE.md,.cursorrules,GEMINI.md,.windsurfrules,.clinerules,.roomodes,CONVENTIONS.md}";
+
 const SENTINEL_BEGIN = "# BEGIN agents-sync";
 const SENTINEL_END = "# END agents-sync";
 
@@ -78,7 +89,12 @@ async function installHusky(projectPath: string, dryRun: boolean): Promise<{ fil
   const huskyDir = path.join(projectPath, ".husky");
   const hookFile = path.join(huskyDir, "pre-commit");
 
-  const block = wrapWithSentinels(DRIFT_COMMAND);
+  const driftBlock = [
+    `if git diff --cached --name-only | grep -qE '${RELEVANT_FILES_PATTERN}'; then`,
+    `  ${DRIFT_COMMAND}`,
+    `fi`,
+  ].join("\n");
+  const block = wrapWithSentinels(driftBlock);
 
   if (await fileExists(hookFile)) {
     const existing = await fs.readFile(hookFile, "utf8");
@@ -106,6 +122,7 @@ async function installLefthook(projectPath: string, dryRun: boolean): Promise<{ 
     "pre-commit:",
     "  commands:",
     "    agents-sync:",
+    `      glob: "${RELEVANT_FILES_GLOB}"`,
     `      run: ${DRIFT_COMMAND}`,
     `      fail_text: "${FAIL_MESSAGE}"`,
     "",
@@ -138,10 +155,12 @@ async function installGitHook(projectPath: string, dryRun: boolean): Promise<{ f
   const hookFile = path.join(hooksDir, "pre-commit");
 
   const driftBlock = [
-    `${DRIFT_COMMAND}`,
-    `if [ $? -ne 0 ]; then`,
-    `  echo "${FAIL_MESSAGE}"`,
-    `  exit 1`,
+    `if git diff --cached --name-only | grep -qE '${RELEVANT_FILES_PATTERN}'; then`,
+    `  ${DRIFT_COMMAND}`,
+    `  if [ $? -ne 0 ]; then`,
+    `    echo "${FAIL_MESSAGE}"`,
+    `    exit 1`,
+    `  fi`,
     `fi`,
   ].join("\n");
   const block = wrapWithSentinels(driftBlock);

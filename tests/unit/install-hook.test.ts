@@ -40,7 +40,7 @@ describe("runInstallHook — git (plain)", () => {
   it("detects already-installed hook and returns alreadyInstalled=true", async () => {
     const dir = await makeGitRepo();
     const hookFile = path.join(dir, ".git", "hooks", "pre-commit");
-    await fs.writeFile(hookFile, "#!/usr/bin/env sh\nnpx @googlarz/agents-sync drift . --ci\n", "utf-8");
+    await fs.writeFile(hookFile, "#!/usr/bin/env sh\n# BEGIN agents-sync\nnpx @googlarz/agents-sync drift . --ci\n# END agents-sync\n", "utf-8");
 
     const result = await runInstallHook({ projectPath: dir, manager: "git" });
 
@@ -80,7 +80,7 @@ describe("runInstallHook — husky", () => {
   it("detects already-installed husky hook", async () => {
     const dir = await createTempProject({});
     await fs.mkdir(path.join(dir, ".husky"), { recursive: true });
-    await fs.writeFile(path.join(dir, ".husky", "pre-commit"), "npx @googlarz/agents-sync drift . --ci\n");
+    await fs.writeFile(path.join(dir, ".husky", "pre-commit"), "# BEGIN agents-sync\nnpx @googlarz/agents-sync drift . --ci\n# END agents-sync\n");
 
     const result = await runInstallHook({ projectPath: dir, manager: "husky" });
     expect(result.alreadyInstalled).toBe(true);
