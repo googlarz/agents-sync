@@ -8,15 +8,19 @@ AGENTS.md is a plain-text file at the root of a software project that describes 
 
 ## Overview
 
-AGENTS.md serves as the **single source of truth** for AI context in a project. Tool-specific files (CLAUDE.md, .cursorrules, copilot-instructions.md, GEMINI.md, .windsurfrules, .clinerules) are derived from it by agents-sync. Authors edit AGENTS.md; agents-sync keeps the derived files in sync.
+AGENTS.md serves as the **single source of truth** for AI context in a project. Tool-specific files are derived from it by agents-sync. Authors edit AGENTS.md; agents-sync keeps the derived files in sync.
 
 ```
-AGENTS.md  ──►  CLAUDE.md           (Claude Code)
-           ──►  .cursorrules         (Cursor)
-           ──►  copilot-instructions.md  (GitHub Copilot)
-           ──►  GEMINI.md            (Gemini CLI)
-           ──►  .windsurfrules       (Windsurf)
-           ──►  .clinerules          (Cline)
+AGENTS.md  ──►  CLAUDE.md                        (Claude Code)
+           ──►  .cursorrules                       (Cursor)
+           ──►  .github/copilot-instructions.md    (GitHub Copilot)
+           ──►  GEMINI.md                          (Gemini CLI)
+           ──►  .windsurfrules                     (Windsurf)
+           ──►  .clinerules                        (Cline)
+           ──►  .roomodes                          (Roo Code)
+           ──►  CONVENTIONS.md                     (Aider)
+           ──►  .kiro/steering/agents-sync.md      (Kiro)
+           ──►  .trae/rules/agents-sync.md         (Trae)
 ```
 
 ---

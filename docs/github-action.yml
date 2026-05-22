@@ -80,6 +80,10 @@ jobs:
             - `GEMINI.md` — Gemini CLI
             - `.windsurfrules` — Windsurf
             - `.clinerules` — Cline
+            - `.roomodes` — Roo Code
+            - `CONVENTIONS.md` — Aider
+            - `.kiro/steering/agents-sync.md` — Kiro
+            - `.trae/rules/agents-sync.md` — Trae
 
             Review the diff and merge to keep your AI tools in sync.
 

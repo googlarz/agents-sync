@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const ToolNameSchema = z.enum(["claude", "cursor", "copilot", "gemini", "windsurf", "cline", "roo", "aider"]);
+export const ToolNameSchema = z.enum(["claude", "cursor", "copilot", "gemini", "windsurf", "cline", "roo", "aider", "kiro", "trae"]);
 
 export const AgentsSyncConfigSchema = z
   .object({
