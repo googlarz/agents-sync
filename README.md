@@ -31,7 +31,13 @@
 
 You migrated from Prisma to Drizzle three weeks ago. You updated `CLAUDE.md`. Last Thursday, your colleague opened the project in Cursor — `.cursorrules` still said "use Prisma ORM". They wrote a new migration using Prisma. The PR landed on Friday. You found it Monday morning.
 
-That's the problem. Every AI coding tool expects its own context file:
+You moved auth to a separate `src/auth/` module two sprints ago. The directory restructure is in git. Every AI tool still thinks auth lives in `src/lib/`. New engineers onboard, get confidently wrong suggestions on day one, and blame themselves for not understanding the codebase.
+
+You added a "never use `any` type" rule to `CLAUDE.md` in January. It's May. Copilot never heard about it. Windsurf never heard about it. The rule exists in one file, enforced by one tool, ignored by everything else.
+
+Each of these happened because context files drift. Not dramatically — just one update here, one forgotten file there, until the gap between what you wrote and what your tools know is wide enough to cause real damage.
+
+Every AI coding tool expects its own context file:
 
 | Tool | File |
 |---|---|
@@ -62,6 +68,8 @@ It doesn't stay written once.
 **You need nine files, not one.** `CLAUDE.md` covers Claude Code. Your colleague uses Cursor. CI runs Copilot suggestions. New hires bring Windsurf or Cline. Each tool has its own format, its own instructions, and its own staleness clock. A manually-maintained `CLAUDE.md` leaves everyone else with nothing.
 
 **agents-sync closes the loop:** scan actual code → Claude extracts architecture and conventions → canonical `AGENTS.md` → all nine files derived automatically. Run once. Drift detected at every commit. Re-sync in seconds when it matters. The context files stop being something you remember to update and become something that's just always correct.
+
+**One more thing worth knowing:** Claude Code [silently drops `CLAUDE.md` rules after context compaction](https://github.com/anthropics/claude-code/issues/40459) — your carefully-generated instructions vanish mid-session without warning. agents-sync can't fix that (it's a Claude Code bug), but [cc-safe-setup](https://github.com/yurukusa/cc-safe-setup)'s `subagent-claudemd-inject` hook re-injects critical rules into subagent prompts as a mitigation.
 
 ---
 
