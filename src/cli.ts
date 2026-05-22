@@ -261,7 +261,11 @@ async function runCli(): Promise<void> {
       const { runExport } = await import("./tools/export.js");
       const tool = positional[1];
       const projectPath = resolvePath(positional[2]);
+      const VALID_EXPORT_TOOLS = ["claude", "cursor", "copilot", "gemini", "windsurf", "cline", "roo", "aider"] as const;
       if (!tool) die("export requires a tool name: claude, cursor, copilot, gemini, windsurf, cline, roo, aider");
+      if (!VALID_EXPORT_TOOLS.includes(tool as typeof VALID_EXPORT_TOOLS[number])) {
+        die(`unknown tool: "${tool}". Valid tools: ${VALID_EXPORT_TOOLS.join(", ")}`);
+      }
       const result = await runExport({ projectPath, tool: tool as Parameters<typeof runExport>[0]["tool"], dryRun });
       process.stdout.write(result.report + "\n");
       break;

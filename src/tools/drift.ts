@@ -1,5 +1,5 @@
 import path from "node:path";
-import { assertProjectDir, readFileSafe } from "../lib/file-utils.js";
+import { assertProjectDir, readFileSafe, fileExists } from "../lib/file-utils.js";
 import { scan } from "../scanner/index.js";
 import { loadSnapshot } from "../snapshot/writer.js";
 import { detectDrift, detectSemanticDrift, formatDriftReport, type DriftResult } from "../snapshot/drift.js";
@@ -38,8 +38,25 @@ export async function runDrift(options: DriftOptions): Promise<DriftToolResult> 
     return { hasSnapshot: false, report: "No snapshot found. Run init first.", highDrift: false };
   }
 
+  // Flag missing AGENTS.md as HIGH drift
+  const agentsMdPath = path.join(options.projectPath, "AGENTS.md");
+  if (!(await fileExists(agentsMdPath))) {
+    result.signals.push({ severity: "HIGH", message: "AGENTS.md deleted", detail: "File is missing — re-run init or restore from git" });
+    result.maxSeverity = "HIGH";
+    result.recommendation = "AGENTS.md is missing. Re-run: /agents-sync init";
+    return {
+      hasSnapshot: true,
+      report: formatDriftReport(result),
+      maxSeverity: result.maxSeverity,
+      signalCount: result.signals.length,
+      daysSinceSync: result.daysSinceSync,
+      recommendation: result.recommendation,
+      highDrift: true,
+    };
+  }
+
   // Augment with semantic drift — contradictions between AGENTS.md claims and current stack
-  const agentsMd = await readFileSafe(path.join(options.projectPath, "AGENTS.md"));
+  const agentsMd = await readFileSafe(agentsMdPath);
   if (agentsMd) {
     const semanticSignals = detectSemanticDrift(agentsMd, corpus);
     result.signals.push(...semanticSignals);

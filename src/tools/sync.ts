@@ -152,6 +152,11 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
 
   const derivations = await deriveAll({ projectPath, agentsMdContent: agentsMd, metadata: stubMetadata, tools: effectiveTools, dryRun });
 
+  // Update syncedAt so daysSinceSync stays accurate after fast syncs
+  if (!dryRun) {
+    await saveSnapshot({ ...fastSnapshot, syncedAt: new Date().toISOString() });
+  }
+
   return {
     success: true,
     filesUpdated: derivations.filter((d) => !d.error).map((d) => ({ tool: d.tool, path: d.path })),

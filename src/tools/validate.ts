@@ -70,23 +70,27 @@ export async function runValidate(options: ValidateOptions): Promise<ValidateRes
   const canonicalExists = await fileExists(agentsMdPath);
 
   if (!snapshot) {
-    // No snapshot: just check which files exist
+    // No snapshot: report file presence but don't treat existing files as drifted.
+    // --strict should not block CI on repos that have committed context files but
+    // haven't run init yet — there is no baseline to compare against.
     const toolFiles: FileValidation[] = [];
+    let allExist = true;
     for (const [tool, relPath] of Object.entries(TOOL_PATHS)) {
       if (tool === "agents-md") continue;
       const absPath = path.join(options.projectPath, relPath);
       const exists = await fileExists(absPath);
+      if (!exists) allExist = false;
       toolFiles.push({
         tool,
         path: absPath,
-        status: exists ? "drifted" : "missing",
-        details: exists ? "No snapshot to compare against" : undefined,
+        status: exists ? "in-sync" : "missing",
+        details: exists ? "No baseline — run init to start tracking" : undefined,
       });
     }
     const result = {
       canonical: { path: agentsMdPath, exists: canonicalExists },
       toolFiles,
-      allInSync: false,
+      allInSync: allExist,
       hasSnapshot: false,
     };
     return { ...result, report: buildReport(result.canonical, toolFiles, false) };

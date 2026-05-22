@@ -89,9 +89,20 @@ async function installHusky(projectPath: string, dryRun: boolean): Promise<{ fil
   const huskyDir = path.join(projectPath, ".husky");
   const hookFile = path.join(huskyDir, "pre-commit");
 
+  // Husky v9 removed _/husky.sh — only include the sourcing line for v8
+  const huskyShFile = path.join(huskyDir, "_", "husky.sh");
+  const isV8 = await fileExists(huskyShFile);
+  const header = isV8
+    ? `#!/usr/bin/env sh\n. "$(dirname -- "$0")/_/husky.sh"\n`
+    : `#!/usr/bin/env sh\n`;
+
   const driftBlock = [
     `if git diff --cached --name-only | grep -qE '${RELEVANT_FILES_PATTERN}'; then`,
     `  ${DRIFT_COMMAND}`,
+    `  if [ $? -ne 0 ]; then`,
+    `    echo "${FAIL_MESSAGE}"`,
+    `    exit 1`,
+    `  fi`,
     `fi`,
   ].join("\n");
   const block = wrapWithSentinels(driftBlock);
@@ -109,14 +120,22 @@ async function installHusky(projectPath: string, dryRun: boolean): Promise<{ fil
 
   if (!dryRun) {
     await fs.mkdir(huskyDir, { recursive: true });
-    await fs.writeFile(hookFile, `#!/usr/bin/env sh\n. "$(dirname -- "$0")/_/husky.sh"\n\n${block}\n`);
+    await fs.writeFile(hookFile, `${header}\n${block}\n`);
     await fs.chmod(hookFile, 0o755);
   }
   return { files: [hookFile], alreadyInstalled: false };
 }
 
+async function findLefthookConfig(projectPath: string): Promise<string> {
+  const candidates = [".lefthook.yml", "lefthook.yml", ".lefthook.yaml", "lefthook.yaml"];
+  for (const f of candidates) {
+    if (await fileExists(path.join(projectPath, f))) return path.join(projectPath, f);
+  }
+  return path.join(projectPath, ".lefthook.yml");
+}
+
 async function installLefthook(projectPath: string, dryRun: boolean): Promise<{ files: string[]; alreadyInstalled: boolean }> {
-  const configFile = path.join(projectPath, ".lefthook.yml");
+  const configFile = await findLefthookConfig(projectPath);
 
   const newBlock = [
     "pre-commit:",
