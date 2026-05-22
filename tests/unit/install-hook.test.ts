@@ -85,6 +85,36 @@ describe("runInstallHook — husky", () => {
     const result = await runInstallHook({ projectPath: dir, manager: "husky" });
     expect(result.alreadyInstalled).toBe(true);
   });
+
+  it("husky v9 — omits _/husky.sh sourcing line when file is absent", async () => {
+    const dir = await createTempProject({});
+    await fs.mkdir(path.join(dir, ".husky"), { recursive: true });
+    // v9: no _/husky.sh file
+
+    await runInstallHook({ projectPath: dir, manager: "husky" });
+    const content = await fs.readFile(path.join(dir, ".husky", "pre-commit"), "utf-8");
+    expect(content).not.toContain("husky.sh");
+  });
+
+  it("husky v8 — includes _/husky.sh sourcing line when file exists", async () => {
+    const dir = await createTempProject({});
+    await fs.mkdir(path.join(dir, ".husky", "_"), { recursive: true });
+    await fs.writeFile(path.join(dir, ".husky", "_", "husky.sh"), "# husky v8\n");
+
+    await runInstallHook({ projectPath: dir, manager: "husky" });
+    const content = await fs.readFile(path.join(dir, ".husky", "pre-commit"), "utf-8");
+    expect(content).toContain("husky.sh");
+  });
+
+  it("husky hook includes failure message and exit 1 on drift failure", async () => {
+    const dir = await createTempProject({});
+    await fs.mkdir(path.join(dir, ".husky"), { recursive: true });
+
+    await runInstallHook({ projectPath: dir, manager: "husky" });
+    const content = await fs.readFile(path.join(dir, ".husky", "pre-commit"), "utf-8");
+    expect(content).toContain("exit 1");
+    expect(content).toContain("out of sync");
+  });
 });
 
 describe("runInstallHook — lefthook", () => {
@@ -108,6 +138,29 @@ describe("runInstallHook — lefthook", () => {
     const content = await fs.readFile(path.join(dir, ".lefthook.yml"), "utf-8");
     expect(content).toContain("pre-push");
     expect(content).toContain("agents-sync drift");
+  });
+
+  it("appends to existing lefthook.yml (no dot-prefix) instead of creating .lefthook.yml", async () => {
+    const dir = await createTempProject({
+      "lefthook.yml": "pre-push:\n  commands:\n    tests:\n      run: npm test\n",
+    });
+    await runInstallHook({ projectPath: dir, manager: "lefthook" });
+
+    // Should write to the existing lefthook.yml, not create a new .lefthook.yml
+    const targetContent = await fs.readFile(path.join(dir, "lefthook.yml"), "utf-8");
+    expect(targetContent).toContain("agents-sync drift");
+
+    // The dot-prefix file should NOT have been created
+    await expect(fs.access(path.join(dir, ".lefthook.yml"))).rejects.toThrow();
+  });
+
+  it("lefthook config includes glob filter for relevant files", async () => {
+    const dir = await createTempProject({});
+    await runInstallHook({ projectPath: dir, manager: "lefthook" });
+    const content = await fs.readFile(path.join(dir, ".lefthook.yml"), "utf-8");
+    expect(content).toContain("glob");
+    expect(content).toContain("package.json");
+    expect(content).toContain("AGENTS.md");
   });
 
   it("detects already-installed lefthook config", async () => {

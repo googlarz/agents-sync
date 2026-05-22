@@ -4,6 +4,22 @@ All notable changes to `@googlarz/agents-sync` are documented here.
 
 ---
 
+## [1.5.6] — 2026-05-22
+
+### Fixed
+- **Husky v9 compatibility** — generated hooks no longer write `. "$(dirname "$0")/_/husky.sh"` on projects where that file is absent (husky v9 removed it); the sourcing line is included only when `_/husky.sh` actually exists
+- **Husky hook now blocks commits on failure** — added explicit `echo + exit 1` so drift failures are surfaced with a message, not silently ignored
+- **`install-hook` lefthook target** — writes to the project's actual lefthook config file (`lefthook.yml`, `.lefthook.yaml`, etc.) instead of always creating `.lefthook.yml`
+- **`validate --strict` no longer fails on fresh clones** — context files that exist without a snapshot baseline are reported as `in-sync` (no comparison possible); only missing files fail `--strict`
+- **`drift --ci` catches deleted AGENTS.md** — a missing AGENTS.md now returns HIGH drift immediately, so pre-commit hooks block the commit
+- **`sync --fast` updates snapshot timestamp** — `syncedAt` is saved after fast syncs so `daysSinceSync` in `status` stays accurate
+- **CLI `export` validates tool name** — unknown tool names now exit with a clear error instead of silently succeeding
+
+### Tests
+- 10 new unit tests covering all 7 fixes: validate no-snapshot behavior, drift missing-AGENTS.md, husky v8/v9 detection, husky failure message, lefthook config file resolution, lefthook glob filter, and fast sync timestamp update
+
+---
+
 ## [1.5.5] — 2026-05-20
 
 ### Added

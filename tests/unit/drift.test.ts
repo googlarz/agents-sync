@@ -1,6 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
+import fs from "node:fs/promises";
+import path from "node:path";
+import os from "node:os";
 import { detectDrift, detectSemanticDrift, formatDriftReport } from "../../src/snapshot/drift.js";
-import { buildSnapshot, sha256 } from "../../src/snapshot/writer.js";
+import { buildSnapshot, saveSnapshot, sha256 } from "../../src/snapshot/writer.js";
+import { runDrift } from "../../src/tools/drift.js";
 import type { RawCorpus } from "../../src/scanner/index.js";
 
 function makeCorpus(overrides: Partial<RawCorpus> = {}): RawCorpus {
@@ -34,6 +38,55 @@ function makeCorpus(overrides: Partial<RawCorpus> = {}): RawCorpus {
     ...overrides,
   };
 }
+
+describe("runDrift — missing AGENTS.md", () => {
+  const tmpDirs: string[] = [];
+
+  afterEach(async () => {
+    for (const d of tmpDirs) await fs.rm(d, { recursive: true, force: true });
+    tmpDirs.length = 0;
+  });
+
+  async function makeProject(files: Record<string, string> = {}): Promise<string> {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-sync-drift-"));
+    tmpDirs.push(dir);
+    for (const [rel, content] of Object.entries(files)) {
+      const abs = path.join(dir, rel);
+      await fs.mkdir(path.dirname(abs), { recursive: true });
+      await fs.writeFile(abs, content, "utf-8");
+    }
+    return dir;
+  }
+
+  it("flags HIGH drift and highDrift=true when AGENTS.md is deleted", async () => {
+    const dir = await makeProject({}); // no AGENTS.md
+    const snapshot = buildSnapshot({
+      projectPath: dir,
+      manifestContent: "{}",
+      structureHash: sha256("src"),
+      filesManaged: [{ tool: "agents-md", path: path.join(dir, "AGENTS.md"), sha256: sha256("# AGENTS.md\n") }],
+      language: "typescript",
+      framework: null,
+      topLevelDirs: ["src"],
+      dependencyCount: 0,
+      totalFiles: 1,
+    });
+    await saveSnapshot(snapshot);
+
+    const result = await runDrift({ projectPath: dir });
+    expect(result.hasSnapshot).toBe(true);
+    expect(result.highDrift).toBe(true);
+    expect(result.maxSeverity).toBe("HIGH");
+    expect(result.report).toContain("AGENTS.md");
+  });
+
+  it("returns hasSnapshot=false with no snapshot", async () => {
+    const dir = await makeProject({ "AGENTS.md": "# AGENTS.md\n" });
+    const result = await runDrift({ projectPath: dir });
+    expect(result.hasSnapshot).toBe(false);
+    expect(result.highDrift).toBe(false);
+  });
+});
 
 describe("drift detection", () => {
   it("reports no drift when nothing changed", () => {

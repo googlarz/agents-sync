@@ -149,6 +149,31 @@ describe("runValidate", () => {
     expect(result.allInSync).toBe(false);
   });
 
+  it("no-snapshot: existing files reported as in-sync, not drifted (--strict should not fail)", async () => {
+    // A freshly cloned repo with committed context files but no .agents-sync/ snapshot
+    // should not fail --strict — there is no baseline to compare against.
+    const dir = await project({ "AGENTS.md": "# AGENTS.md\n", "CLAUDE.md": "# CLAUDE.md\n" });
+    const result = await runValidate({ projectPath: dir, strict: true });
+    expect(result.hasSnapshot).toBe(false);
+    const claudeFile = result.toolFiles.find((f) => f.tool === "claude");
+    expect(claudeFile?.status).toBe("in-sync");
+    // allInSync reflects whether all expected files exist — CLAUDE.md exists so it's true
+    // (other tool files are missing and will lower allInSync, but the key assertion is
+    // that existing files are NOT marked drifted)
+    expect(claudeFile?.status).not.toBe("drifted");
+  });
+
+  it("no-snapshot: missing context files set allInSync=false so --strict can catch absent files", async () => {
+    // If someone deleted .cursorrules and there is no snapshot, strict should still fail
+    // because the file is simply absent (not "drifted without baseline").
+    const dir = await project({ "AGENTS.md": "# AGENTS.md\n" }); // no CLAUDE.md etc.
+    const result = await runValidate({ projectPath: dir });
+    expect(result.hasSnapshot).toBe(false);
+    expect(result.allInSync).toBe(false);
+    const claudeFile = result.toolFiles.find((f) => f.tool === "claude");
+    expect(claudeFile?.status).toBe("missing");
+  });
+
   it("checks roo and aider files via snapshot", async () => {
     const rooContent = '{"customModes":[]}';
     const aiderContent = "# CONVENTIONS\n";
