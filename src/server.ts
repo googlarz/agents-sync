@@ -13,7 +13,7 @@ import { runScanReport } from "./tools/scan-report.js";
 import { runInstallHook, runUninstallHook } from "./tools/install-hook.js";
 import { runDerive } from "./tools/derive.js";
 
-const VERSION = "1.5.7";
+const VERSION = "1.5.8";
 
 const server = new McpServer({
   name: "agents-sync",

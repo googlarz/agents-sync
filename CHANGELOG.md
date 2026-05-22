@@ -4,6 +4,18 @@ All notable changes to `@googlarz/agents-sync` are documented here.
 
 ---
 
+## [1.5.8] — 2026-05-22
+
+### Fixed
+- **`agents-sync.config.json` now accepts `kiro` and `trae`** — `ToolNameSchema` was missing the two new tools; passing them in the config `tools` array would throw a Zod parse error
+
+### Docs
+- `skill/SKILL.md` — added `derive` command, full 11-tool list, complete MCP dispatch table
+- `docs/github-action.yml` — PR body now lists all 11 generated files
+- `docs/agents-md-spec.md` — derivation diagram updated for all 10 tool files
+
+---
+
 ## [1.5.7] — 2026-05-22
 
 ### Added
