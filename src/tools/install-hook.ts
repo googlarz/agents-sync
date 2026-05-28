@@ -28,6 +28,13 @@ export interface InstallHookOptions {
    * @default false
    */
   antiCompaction?: boolean;
+  /**
+   * Install a SessionStart instruction that tells Claude to check for AGENTS.md
+   * in subdirectories it enters during the session.  Useful in monorepos where
+   * each package has its own AGENTS.md below the project root.
+   * @default false
+   */
+  lazy?: boolean;
 }
 
 export interface InstallHookResult {
@@ -37,6 +44,8 @@ export interface InstallHookResult {
   sessionHookInstalled: boolean;
   sessionHookAlreadyInstalled: boolean;
   antiCompactionInstalled: boolean;
+  lazyInstalled: boolean;
+  lazyAlreadyInstalled: boolean;
   dryRun: boolean;
   report: string;
 }
@@ -334,6 +343,107 @@ export async function removeSessionStartHook(
 }
 
 /**
+ * Lazy loading: inject an instruction at session start that tells Claude to
+ * proactively read AGENTS.md in subdirectories it enters.  This covers the
+ * monorepo case where each package has its own AGENTS.md below the project
+ * root — files that the upward-walk in SESSION_HOOK_COMMAND never reaches.
+ *
+ * Uses an instruction rather than a shell script because hooks can't do
+ * runtime-conditional injection based on which files Claude later touches.
+ * Claude reads the instruction from the system-reminder and fetches the
+ * relevant AGENTS.md on demand using its Read tool.
+ *
+ * Identified by "# agents-sync-lazy" comment for idempotency.
+ */
+const LAZY_HOOK_COMMAND =
+  `echo 'agents-sync: lazy AGENTS.md loading is enabled for this session. ` +
+  `When you start working in a subdirectory that you have not visited yet, ` +
+  `check whether it contains an AGENTS.md file. ` +
+  `If it does, read it before making changes — it may contain package-specific ` +
+  `commands, architecture notes, or rules that add to or override the root AGENTS.md.' ` +
+  `# agents-sync-lazy`;
+
+export async function installLazyHook(
+  projectPath: string,
+  dryRun: boolean,
+): Promise<{ file: string; alreadyInstalled: boolean }> {
+  const clauDir = path.join(projectPath, ".claude");
+  const settingsFile = path.join(clauDir, "settings.json");
+
+  let settings: Record<string, unknown> = {};
+  if (await fileExists(settingsFile)) {
+    try {
+      settings = JSON.parse(await fs.readFile(settingsFile, "utf8")) as Record<string, unknown>;
+    } catch { /* ignore */ }
+  }
+
+  const hooks = (settings.hooks ?? {}) as Record<string, unknown>;
+  const sessionStart = (hooks.SessionStart ?? []) as unknown[];
+
+  if (JSON.stringify(sessionStart).includes("agents-sync-lazy")) {
+    return { file: settingsFile, alreadyInstalled: true };
+  }
+
+  const entry = {
+    matcher: "",
+    hooks: [{ type: "command", command: LAZY_HOOK_COMMAND }],
+  };
+
+  const updated: Record<string, unknown> = {
+    ...settings,
+    hooks: { ...hooks, SessionStart: [...sessionStart, entry] },
+  };
+
+  if (!dryRun) {
+    await fs.mkdir(clauDir, { recursive: true });
+    await fs.writeFile(settingsFile, JSON.stringify(updated, null, 2) + "\n", "utf8");
+  }
+
+  return { file: settingsFile, alreadyInstalled: false };
+}
+
+export async function removeLazyHook(
+  projectPath: string,
+  dryRun: boolean,
+): Promise<{ file: string; found: boolean }> {
+  const settingsFile = path.join(projectPath, ".claude", "settings.json");
+  if (!(await fileExists(settingsFile))) return { file: settingsFile, found: false };
+
+  let settings: Record<string, unknown>;
+  try {
+    settings = JSON.parse(await fs.readFile(settingsFile, "utf8")) as Record<string, unknown>;
+  } catch {
+    return { file: settingsFile, found: false };
+  }
+
+  const hooks = (settings.hooks ?? {}) as Record<string, unknown>;
+  const sessionStart = (hooks.SessionStart ?? []) as unknown[];
+  const filtered = sessionStart.filter((e) => !JSON.stringify(e).includes("agents-sync-lazy"));
+
+  if (filtered.length === sessionStart.length) return { file: settingsFile, found: false };
+
+  const updatedHooks = { ...hooks };
+  if (filtered.length > 0) {
+    updatedHooks.SessionStart = filtered;
+  } else {
+    delete updatedHooks.SessionStart;
+  }
+
+  const updated: Record<string, unknown> = { ...settings };
+  if (Object.keys(updatedHooks).length > 0) {
+    updated.hooks = updatedHooks;
+  } else {
+    delete updated.hooks;
+  }
+
+  if (!dryRun) {
+    await fs.writeFile(settingsFile, JSON.stringify(updated, null, 2) + "\n", "utf8");
+  }
+
+  return { file: settingsFile, found: true };
+}
+
+/**
  * Anti-compaction: install a PreToolUse hook that re-injects AGENTS.md on
  * every tool call.  Protects users who rely solely on the SessionStart hook
  * (no CLAUDE.md) and whose context gets compacted mid-session.
@@ -450,6 +560,7 @@ export interface UninstallHookResult {
   filesModified: string[];
   notInstalled: boolean;
   sessionHookRemoved: boolean;
+  lazyRemoved: boolean;
   dryRun: boolean;
   report: string;
 }
@@ -502,6 +613,12 @@ export async function runUninstallHook(options: UninstallHookOptions): Promise<U
     if (result.found) filesModified.push(result.file);
   }
 
+  // Always clean up lazy hook if present
+  let lazyRemoved = false;
+  const lazyResult = await removeLazyHook(projectPath, dryRun);
+  lazyRemoved = lazyResult.found;
+  if (lazyResult.found) filesModified.push(lazyResult.file);
+
   const notInstalled = filesModified.length === 0;
   const lines: string[] = [];
 
@@ -513,14 +630,15 @@ export async function runUninstallHook(options: UninstallHookOptions): Promise<U
   } else {
     lines.push(`✓ Removed agents-sync pre-commit hook (${manager})`);
     if (sessionHookRemoved) lines.push("✓ Removed agents-sync SessionStart hook (.claude/settings.json)");
+    if (lazyRemoved) lines.push("✓ Removed lazy-loading instruction (.claude/settings.json)");
     for (const f of filesModified) lines.push(`  → ${f}`);
   }
 
-  return { manager, filesModified, notInstalled, sessionHookRemoved, dryRun, report: lines.join("\n") };
+  return { manager, filesModified, notInstalled, sessionHookRemoved, lazyRemoved, dryRun, report: lines.join("\n") };
 }
 
 export async function runInstallHook(options: InstallHookOptions): Promise<InstallHookResult> {
-  const { projectPath, dryRun = false, sessionHook = true, antiCompaction = false } = options;
+  const { projectPath, dryRun = false, sessionHook = true, antiCompaction = false, lazy = false } = options;
   await assertProjectDir(projectPath);
 
   const manager = options.manager ?? (await detectManager(projectPath));
@@ -554,6 +672,16 @@ export async function runInstallHook(options: InstallHookOptions): Promise<Insta
     if (!result.alreadyInstalled) files = [...files, result.file];
   }
 
+  // Optionally install lazy subdirectory loading instruction
+  let lazyInstalled = false;
+  let lazyAlreadyInstalled = false;
+  if (lazy) {
+    const result = await installLazyHook(projectPath, dryRun);
+    lazyAlreadyInstalled = result.alreadyInstalled;
+    lazyInstalled = !result.alreadyInstalled;
+    if (!result.alreadyInstalled) files = [...files, result.file];
+  }
+
   const lines: string[] = [];
 
   if (alreadyInstalled && sessionHookAlreadyInstalled) {
@@ -572,6 +700,10 @@ export async function runInstallHook(options: InstallHookOptions): Promise<Insta
     if (antiCompactionInstalled) {
       lines.push("✓ Installed anti-compaction PreToolUse hook (.claude/settings.json)");
       lines.push("  → AGENTS.md will be re-injected on every tool call (survives context compaction).");
+    }
+    if (lazyInstalled) {
+      lines.push("✓ Installed lazy-loading instruction (.claude/settings.json)");
+      lines.push("  → Claude will check for AGENTS.md in subdirectories it enters (monorepo support).");
     }
     for (const f of files) lines.push(`  → ${f}`);
     lines.push("");
@@ -595,6 +727,8 @@ export async function runInstallHook(options: InstallHookOptions): Promise<Insta
     sessionHookInstalled,
     sessionHookAlreadyInstalled,
     antiCompactionInstalled,
+    lazyInstalled,
+    lazyAlreadyInstalled,
     dryRun,
     report: lines.join("\n"),
   };

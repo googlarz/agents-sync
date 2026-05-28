@@ -1,6 +1,6 @@
 {
   "name": "@googlarz/agents-sync",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "description": "Make Claude Code (and 10 other AI tools) read your AGENTS.md automatically. One canonical context file, auto-loaded in every session, auto-synced to .cursorrules, GEMINI.md, copilot-instructions.md, and more.",
   "keywords": [
     "claude",

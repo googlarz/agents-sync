@@ -86,6 +86,8 @@ OPTIONS
   --no-session-hook         install-hook / uninstall-hook — skip the .claude/settings.json SessionStart hook
   --anti-compaction         load-context / install-hook — also install PreToolUse hook that re-injects
                             AGENTS.md on every tool call (survives context compaction)
+  --lazy                    load-context / install-hook — install a SessionStart instruction that tells
+                            Claude to check for AGENTS.md in subdirectories it enters (monorepo support)
   --tools <list>            Comma-separated tools to generate (init/sync/derive)
                             e.g. --tools claude,cursor,kiro,trae
   --repomix-output <file>   Use repomix XML/text output as source corpus
@@ -289,7 +291,8 @@ async function runCli(): Promise<void> {
       const { runLoadContext } = await import("./tools/load-context.js");
       const projectPath = resolvePath(positional[1]);
       const antiCompaction = hasFlag("--anti-compaction");
-      const result = await runLoadContext({ projectPath, dryRun, antiCompaction });
+      const lazy = hasFlag("--lazy");
+      const result = await runLoadContext({ projectPath, dryRun, antiCompaction, lazy });
       process.stdout.write(result.report + "\n");
       break;
     }
@@ -308,7 +311,8 @@ async function runCli(): Promise<void> {
       const manager = hasFlag("--husky") ? "husky" : hasFlag("--lefthook") ? "lefthook" : hasFlag("--git") ? "git" : undefined;
       const sessionHook = hasFlag("--no-session-hook") ? false : undefined;
       const antiCompaction = hasFlag("--anti-compaction") ? true : undefined;
-      const result = await runInstallHook({ projectPath, manager, sessionHook, antiCompaction, dryRun });
+      const lazy = hasFlag("--lazy") ? true : undefined;
+      const result = await runInstallHook({ projectPath, manager, sessionHook, antiCompaction, lazy, dryRun });
       process.stdout.write(result.report + "\n");
       break;
     }

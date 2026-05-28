@@ -84,4 +84,40 @@ describe("runUnloadContext", () => {
     const settings = JSON.parse(raw) as Record<string, unknown>;
     expect(settings.hooks).toBeUndefined();
   });
+
+  it("also removes lazy hook when lazy was installed", async () => {
+    const dir = await createTempProject({ "AGENTS.md": "# AGENTS.md\n" });
+    await runLoadContext({ projectPath: dir, lazy: true });
+    await runUnloadContext({ projectPath: dir });
+
+    const raw = await fs.readFile(path.join(dir, ".claude", "settings.json"), "utf-8");
+    const settings = JSON.parse(raw) as Record<string, unknown>;
+    expect(settings.hooks).toBeUndefined();
+  });
+});
+
+describe("runLoadContext — lazy flag", () => {
+  it("installs a second SessionStart entry with the lazy instruction", async () => {
+    const dir = await createTempProject({ "AGENTS.md": "# AGENTS.md\n" });
+    await runLoadContext({ projectPath: dir, lazy: true });
+
+    const raw = await fs.readFile(path.join(dir, ".claude", "settings.json"), "utf-8");
+    const settings = JSON.parse(raw) as { hooks: { SessionStart: unknown[] } };
+    // both the file-loading hook and the lazy instruction hook
+    expect(settings.hooks.SessionStart).toHaveLength(2);
+    expect(JSON.stringify(settings.hooks.SessionStart)).toContain("agents-sync-lazy");
+  });
+
+  it("lazy is idempotent — second call does not add a duplicate entry", async () => {
+    const dir = await createTempProject({ "AGENTS.md": "# AGENTS.md\n" });
+    await runLoadContext({ projectPath: dir, lazy: true });
+    await runLoadContext({ projectPath: dir, lazy: true });
+
+    const raw = await fs.readFile(path.join(dir, ".claude", "settings.json"), "utf-8");
+    const settings = JSON.parse(raw) as { hooks: { SessionStart: unknown[] } };
+    const lazyCopies = settings.hooks.SessionStart.filter((e) =>
+      JSON.stringify(e).includes("agents-sync-lazy"),
+    );
+    expect(lazyCopies).toHaveLength(1);
+  });
 });

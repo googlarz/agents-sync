@@ -13,7 +13,7 @@ import { runScanReport } from "./tools/scan-report.js";
 import { runInstallHook, runUninstallHook } from "./tools/install-hook.js";
 import { runDerive } from "./tools/derive.js";
 
-const VERSION = "1.8.0";
+const VERSION = "1.8.1";
 
 const server = new McpServer({
   name: "agents-sync",
@@ -360,15 +360,19 @@ server.tool(
       .boolean()
       .optional()
       .describe("Also install a PreToolUse hook that re-injects AGENTS.md on every tool call. Protects against Claude Code dropping AGENTS.md after context compaction. Default: false."),
+    lazy: z
+      .boolean()
+      .optional()
+      .describe("Install a SessionStart instruction that tells Claude to check for AGENTS.md in subdirectories it enters. Useful in monorepos where each package has its own AGENTS.md below the project root. Default: false."),
     dryRun: z
       .boolean()
       .optional()
       .describe("Preview what would be written without making changes."),
   },
-  async ({ projectPath, antiCompaction, dryRun }) => {
+  async ({ projectPath, antiCompaction, lazy, dryRun }) => {
     try {
       const { runLoadContext } = await import("./tools/load-context.js");
-      const result = await runLoadContext({ projectPath, antiCompaction, dryRun });
+      const result = await runLoadContext({ projectPath, antiCompaction, lazy, dryRun });
       return { content: [{ type: "text" as const, text: result.report }] };
     } catch (e) {
       return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
@@ -412,14 +416,22 @@ server.tool(
       .boolean()
       .optional()
       .describe("Also install a Claude Code SessionStart hook in .claude/settings.json that auto-loads AGENTS.md. Default: true."),
+    antiCompaction: z
+      .boolean()
+      .optional()
+      .describe("Also install a PreToolUse hook that re-injects AGENTS.md on every tool call. Protects against context compaction. Default: false."),
+    lazy: z
+      .boolean()
+      .optional()
+      .describe("Install a SessionStart instruction that tells Claude to check for AGENTS.md in subdirectories it enters. Useful in monorepos. Default: false."),
     dryRun: z
       .boolean()
       .optional()
       .describe("Preview what would be written without making changes."),
   },
-  async ({ projectPath, manager, sessionHook, dryRun }) => {
+  async ({ projectPath, manager, sessionHook, antiCompaction, lazy, dryRun }) => {
     try {
-      const result = await runInstallHook({ projectPath, manager, sessionHook, dryRun });
+      const result = await runInstallHook({ projectPath, manager, sessionHook, antiCompaction, lazy, dryRun });
       return { content: [{ type: "text" as const, text: result.report }] };
     } catch (e) {
       return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };

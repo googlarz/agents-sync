@@ -4,6 +4,17 @@ All notable changes to `@googlarz/agents-sync` are documented here.
 
 ---
 
+## [1.8.1] — 2026-05-28
+
+### Added
+- **`--lazy` flag** on `load-context` and `install-hook` / **`lazy` param** on `agents_sync_load_context` and `agents_sync_install_hook` MCP tools — installs a SessionStart instruction that tells Claude to check for `AGENTS.md` in subdirectories it enters during the session. Useful in monorepos where each package has its own `AGENTS.md` below the project root. The upward-walk hook (root context) and the lazy instruction (subdirectory context) combine cleanly: root AGENTS.md at session start, package AGENTS.md on demand.
+- **`unload-context` also removes lazy hook** — if lazy was installed, `unload-context` and `uninstall-hook` clean it up automatically.
+
+### Tests
+- 3 new unit tests: lazy installs second SessionStart entry, lazy is idempotent, unload removes lazy hook
+
+---
+
 ## [1.8.0] — 2026-05-28
 
 ### Added

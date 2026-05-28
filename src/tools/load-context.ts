@@ -17,6 +17,8 @@ import {
   removeSessionStartHook,
   installPreToolUseHook,
   removePreToolUseHook,
+  installLazyHook,
+  removeLazyHook,
 } from "./install-hook.js";
 
 export interface LoadContextOptions {
@@ -30,6 +32,13 @@ export interface LoadContextOptions {
    * @default false
    */
   antiCompaction?: boolean;
+  /**
+   * Install a SessionStart instruction that tells Claude to check for AGENTS.md
+   * in subdirectories it enters.  Useful in monorepos where each package has
+   * its own AGENTS.md below the project root.
+   * @default false
+   */
+  lazy?: boolean;
 }
 
 export interface LoadContextResult {
@@ -42,7 +51,7 @@ export interface LoadContextResult {
 }
 
 export async function runLoadContext(options: LoadContextOptions): Promise<LoadContextResult> {
-  const { projectPath, dryRun = false, antiCompaction = false } = options;
+  const { projectPath, dryRun = false, antiCompaction = false, lazy = false } = options;
 
   const settingsFile = path.join(projectPath, ".claude", "settings.json");
   const agentsMdPath = path.join(projectPath, "AGENTS.md");
@@ -54,6 +63,12 @@ export async function runLoadContext(options: LoadContextOptions): Promise<LoadC
   if (antiCompaction) {
     const result = await installPreToolUseHook(projectPath, dryRun);
     antiCompactionInstalled = !result.alreadyInstalled;
+  }
+
+  let lazyInstalled = false;
+  if (lazy) {
+    const result = await installLazyHook(projectPath, dryRun);
+    lazyInstalled = !result.alreadyInstalled;
   }
 
   const lines: string[] = [];
@@ -78,6 +93,10 @@ export async function runLoadContext(options: LoadContextOptions): Promise<LoadC
       lines.push("✓ Installed anti-compaction PreToolUse hook");
       lines.push("  → AGENTS.md re-injected on every tool call (survives context compaction).");
     }
+    if (lazyInstalled) {
+      lines.push("✓ Installed lazy-loading instruction");
+      lines.push("  → Claude will check for AGENTS.md in subdirectories it enters (monorepo support).");
+    }
     lines.push("");
     lines.push("AGENTS.md will now be auto-loaded as context at the start of every Claude Code session.");
     lines.push("Works from subdirectories — walks up to git root to find all AGENTS.md files.");
@@ -99,18 +118,24 @@ export async function runUnloadContext(options: LoadContextOptions): Promise<{ r
   const { projectPath, dryRun = false } = options;
   const session = await removeSessionStartHook(projectPath, dryRun);
   const preToolUse = await removePreToolUseHook(projectPath, dryRun);
+  const lazy = await removeLazyHook(projectPath, dryRun);
 
-  if (!session.found && !preToolUse.found) {
+  if (!session.found && !preToolUse.found && !lazy.found) {
     return { report: "No agents-sync context hooks found — nothing to remove." };
   }
 
   if (dryRun) {
-    const targets = [session.found && session.file, preToolUse.found && preToolUse.file].filter(Boolean);
+    const targets = [
+      session.found && session.file,
+      preToolUse.found && preToolUse.file,
+      lazy.found && lazy.file,
+    ].filter(Boolean);
     return { report: `DRY RUN — would remove agents-sync hooks from:\n${targets.map((f) => `  → ${f}`).join("\n")}` };
   }
 
   const lines: string[] = [];
   if (session.found) lines.push(`✓ Removed SessionStart hook\n  → ${session.file}`);
   if (preToolUse.found) lines.push(`✓ Removed anti-compaction PreToolUse hook\n  → ${preToolUse.file}`);
+  if (lazy.found) lines.push(`✓ Removed lazy-loading instruction\n  → ${lazy.file}`);
   return { report: lines.join("\n") };
 }
