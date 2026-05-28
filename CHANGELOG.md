@@ -4,6 +4,21 @@ All notable changes to `@googlarz/agents-sync` are documented here.
 
 ---
 
+## [1.8.0] — 2026-05-28
+
+### Added
+- **`load-context` command / `agents_sync_load_context` MCP tool** — zero-friction entry point for the reading side. Works on any project with an existing AGENTS.md — no init, no API key, no CLAUDE.md generation required. `npx @googlarz/agents-sync load-context .` is now the one-liner for users coming from the issue thread who already have AGENTS.md.
+- **`unload-context` command / `agents_sync_unload_context` MCP tool** — removes SessionStart and PreToolUse hooks.
+- **`--anti-compaction` flag** on `load-context` and `install-hook` — installs an additional `PreToolUse` hook that re-injects AGENTS.md on every tool call, protecting against Claude Code dropping context after compaction. Useful for users who don't have CLAUDE.md (where `@AGENTS.md` import handles compaction automatically).
+- **Monorepo-aware SessionStart hook** — updated shell command walks from cwd up to git root, collecting every AGENTS.md found along the path and loading them all (root first, leaf last). Works correctly when Claude Code is opened in a subdirectory.
+- **`check-spec` command / `agents_sync_check_spec` MCP tool** — validates AGENTS.md against the cross-tool spec: checks for required sections (Commands, Architecture, Guidelines), minimum length, and code block usage. Helps ensure AGENTS.md works well across Claude Code, Cursor, Gemini CLI, Codex, and others.
+- **npm description updated** — leads with the reading-side value proposition for users coming from #6235.
+
+### Tests
+- 14 new unit tests: `load-context` install/uninstall/anti-compaction/dry-run (8), `check-spec` pass/fail/missing sections/ci-mode (6)
+
+---
+
 ## [1.7.0] — 2026-05-28
 
 ### Added

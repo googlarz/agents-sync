@@ -2,9 +2,9 @@
 
 # agents-sync
 
-**Write your AI context once. Every tool stays in sync — automatically.**
+**Make your AGENTS.md actually read by Claude Code — and keep every other AI tool in sync automatically.**
 
-**11 AI tools · zero-cost template mode · ~$0.03–0.06 per AI sync · drifts detected in milliseconds**
+**11 AI tools · auto-loaded in every session · zero-cost template mode · ~$0.03–0.06 per AI sync**
 
 [![npm](https://img.shields.io/npm/v/@googlarz/agents-sync?style=flat-square&label=npm)](https://www.npmjs.com/package/@googlarz/agents-sync)
 [![License](https://img.shields.io/badge/License-MIT-8B9500?style=flat-square)](LICENSE)
@@ -79,7 +79,25 @@ It doesn't stay written once.
 
 ## Quick Start
 
-**Step 1 — scan your project (no API key, no cost):**
+**Already have AGENTS.md?** One command makes Claude Code read it automatically — no init, no API key:
+
+```bash
+npx @googlarz/agents-sync load-context .
+```
+
+```
+✓ Installed Claude Code SessionStart hook
+  → /your/project/.claude/settings.json
+
+AGENTS.md will now be auto-loaded as context at the start of every Claude Code session.
+Works from subdirectories — walks up to git root to find all AGENTS.md files.
+```
+
+That's it. If you want to also generate AGENTS.md, keep all tools in sync, and detect drift — read on.
+
+---
+
+**Starting from scratch? Step 1 — scan your project (no API key, no cost):**
 
 ```bash
 npx @googlarz/agents-sync scan .
@@ -396,11 +414,16 @@ AGENTS.md (canonical)  ✓
 <summary><strong>Full CLI reference</strong></summary>
 
 ```bash
+npx @googlarz/agents-sync load-context .             # Just install the SessionStart hook (already have AGENTS.md)
+npx @googlarz/agents-sync load-context . --anti-compaction  # + PreToolUse hook (survives context compaction)
+npx @googlarz/agents-sync unload-context .           # Remove SessionStart/PreToolUse hooks
+
 npx @googlarz/agents-sync scan .                     # No API key — see what scanner detects
 npx @googlarz/agents-sync init .                     # Generate all context files
 npx @googlarz/agents-sync sync .                     # Re-sync after codebase changes
 npx @googlarz/agents-sync drift .                    # Check what changed
 npx @googlarz/agents-sync lint .                     # Verify codebase against Never rules
+npx @googlarz/agents-sync check-spec .               # Validate AGENTS.md against cross-tool spec
 npx @googlarz/agents-sync validate .                 # Check files match AGENTS.md
 npx @googlarz/agents-sync validate . --strict        # Exit 1 when any file drifted (CI)
 npx @googlarz/agents-sync derive .                   # Re-derive all files from AGENTS.md (no API)
@@ -409,11 +432,13 @@ npx @googlarz/agents-sync status .                   # Show sync status
 
 npx @googlarz/agents-sync drift . --ci               # Exit 1 on HIGH drift (CI)
 npx @googlarz/agents-sync lint . --ci                # Exit 1 on any violation (CI)
+npx @googlarz/agents-sync check-spec . --ci          # Exit 1 on errors only (not warnings)
 npx @googlarz/agents-sync init . --dry-run           # Preview without writing
 npx @googlarz/agents-sync init . --tools claude,cursor,kiro,trae  # Specific tools only
 npx @googlarz/agents-sync sync . --fast              # Skip API call if drift is minor (still refreshes MCP + codegraph)
 
 npx @googlarz/agents-sync install-hook .                        # Pre-commit + SessionStart hooks
+npx @googlarz/agents-sync install-hook . --anti-compaction      # + PreToolUse hook
 npx @googlarz/agents-sync install-hook . --dry-run              # Preview without writing
 npx @googlarz/agents-sync install-hook . --no-session-hook      # Pre-commit only
 npx @googlarz/agents-sync uninstall-hook .                      # Remove both hooks
@@ -696,6 +721,9 @@ The config is loaded on every `init`/`sync`. Changes take effect on the next syn
 | `agents_sync_validate` | Check if all tool files match AGENTS.md |
 | `agents_sync_status` | Show sync status and managed files |
 | `agents_sync_lint` | Verify codebase against Never rules in AGENTS.md |
+| `agents_sync_load_context` | Install ONLY the SessionStart hook (works on any project with AGENTS.md) |
+| `agents_sync_unload_context` | Remove SessionStart/PreToolUse hooks |
+| `agents_sync_check_spec` | Validate AGENTS.md against cross-tool spec |
 | `agents_sync_install_hook` | Install pre-commit hook + Claude Code SessionStart hook |
 | `agents_sync_uninstall_hook` | Remove both agents-sync hooks |
 

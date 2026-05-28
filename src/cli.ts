@@ -63,6 +63,11 @@ COMMANDS
   derive [path]             Re-derive all tool files from AGENTS.md (no API call)
   export <tool> [path]      Re-derive a single tool file (no API call)
                             Tools: claude, cursor, copilot, gemini, windsurf, cline, roo, aider, kiro, trae
+  check-spec [path]         Validate AGENTS.md against the cross-tool spec (missing sections, etc.)
+                            --ci exits 1 only on errors, not warnings
+  load-context [path]       Install ONLY the Claude Code SessionStart hook — no init needed
+                            Works on any project that already has AGENTS.md
+  unload-context [path]     Remove the SessionStart hook
   install-hook [path]       Install pre-commit drift-check hook + Claude Code SessionStart hook
                             (SessionStart hook auto-loads AGENTS.md in every Claude Code session)
                             Auto-detects husky, lefthook, or plain git hooks
@@ -79,6 +84,8 @@ OPTIONS
   --lefthook                install-hook — force lefthook hook manager
   --git                     install-hook — force plain git hooks
   --no-session-hook         install-hook / uninstall-hook — skip the .claude/settings.json SessionStart hook
+  --anti-compaction         load-context / install-hook — also install PreToolUse hook that re-injects
+                            AGENTS.md on every tool call (survives context compaction)
   --tools <list>            Comma-separated tools to generate (init/sync/derive)
                             e.g. --tools claude,cursor,kiro,trae
   --repomix-output <file>   Use repomix XML/text output as source corpus
@@ -260,10 +267,37 @@ async function runCli(): Promise<void> {
       break;
     }
 
+    case "check-spec": {
+      const { runCheckSpec } = await import("./tools/check-spec.js");
+      const projectPath = resolvePath(positional[1]);
+      const ci = hasFlag("--ci");
+      const result = await runCheckSpec({ projectPath, ci });
+      process.stdout.write(result.report + "\n");
+      if (!result.passed) process.exit(1);
+      break;
+    }
+
     case "scan": {
       const { runScanReport } = await import("./tools/scan-report.js");
       const projectPath = resolvePath(positional[1]);
       const result = await runScanReport({ projectPath });
+      process.stdout.write(result.report + "\n");
+      break;
+    }
+
+    case "load-context": {
+      const { runLoadContext } = await import("./tools/load-context.js");
+      const projectPath = resolvePath(positional[1]);
+      const antiCompaction = hasFlag("--anti-compaction");
+      const result = await runLoadContext({ projectPath, dryRun, antiCompaction });
+      process.stdout.write(result.report + "\n");
+      break;
+    }
+
+    case "unload-context": {
+      const { runUnloadContext } = await import("./tools/load-context.js");
+      const projectPath = resolvePath(positional[1]);
+      const result = await runUnloadContext({ projectPath, dryRun });
       process.stdout.write(result.report + "\n");
       break;
     }
@@ -273,7 +307,8 @@ async function runCli(): Promise<void> {
       const projectPath = resolvePath(positional[1]);
       const manager = hasFlag("--husky") ? "husky" : hasFlag("--lefthook") ? "lefthook" : hasFlag("--git") ? "git" : undefined;
       const sessionHook = hasFlag("--no-session-hook") ? false : undefined;
-      const result = await runInstallHook({ projectPath, manager, sessionHook, dryRun });
+      const antiCompaction = hasFlag("--anti-compaction") ? true : undefined;
+      const result = await runInstallHook({ projectPath, manager, sessionHook, antiCompaction, dryRun });
       process.stdout.write(result.report + "\n");
       break;
     }

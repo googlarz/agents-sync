@@ -21,6 +21,13 @@ export interface InstallHookOptions {
    * @default true
    */
   sessionHook?: boolean;
+  /**
+   * Also install a PreToolUse hook that re-injects AGENTS.md on every tool
+   * call, protecting against context compaction dropping AGENTS.md content.
+   * Only needed for users who rely solely on the SessionStart hook (no CLAUDE.md).
+   * @default false
+   */
+  antiCompaction?: boolean;
 }
 
 export interface InstallHookResult {
@@ -29,6 +36,7 @@ export interface InstallHookResult {
   alreadyInstalled: boolean;
   sessionHookInstalled: boolean;
   sessionHookAlreadyInstalled: boolean;
+  antiCompactionInstalled: boolean;
   dryRun: boolean;
   report: string;
 }
@@ -217,15 +225,27 @@ async function installGitHook(projectPath: string, dryRun: boolean): Promise<{ f
 
 /**
  * Shell command injected into .claude/settings.json SessionStart hook.
- * Walks up to git root, finds AGENTS.md, and cats it so Claude Code injects
- * it as a <system-reminder> at the start of every session.
- * The trailing comment "# agents-sync" is used as an idempotency marker.
+ *
+ * Monorepo-aware: walks from cwd up to git root, collecting every AGENTS.md
+ * found along the path (root first, leaf last) and cats them all.  Works
+ * correctly when Claude Code is opened in a subdirectory.
+ *
+ * The trailing "# agents-sync" comment is the idempotency marker used by
+ * install/uninstall detection.
  */
 const SESSION_HOOK_COMMAND =
-  `bash -c 'r=$(git -C "$(pwd)" rev-parse --show-toplevel 2>/dev/null || pwd); ` +
-  `[ -f "$r/AGENTS.md" ] && cat "$r/AGENTS.md" || true' # agents-sync`;
+  `bash -c '` +
+  `r=$(git -C "$(pwd)" rev-parse --show-toplevel 2>/dev/null||pwd);` +
+  `d=$(pwd);f="";` +
+  `while true;do ` +
+  `[ -f "$d/AGENTS.md" ]&&f="$d/AGENTS.md $f";` +
+  `[ "$d" = "$r" ]&&break;` +
+  `p=$(dirname "$d");[ "$p" = "$d" ]&&break;d=$p;` +
+  `done;` +
+  `for x in $f;do cat "$x";echo;done` +
+  `' # agents-sync`;
 
-async function installSessionStartHook(
+export async function installSessionStartHook(
   projectPath: string,
   dryRun: boolean,
 ): Promise<{ file: string; alreadyInstalled: boolean }> {
@@ -271,7 +291,7 @@ async function installSessionStartHook(
   return { file: settingsFile, alreadyInstalled: false };
 }
 
-async function removeSessionStartHook(
+export async function removeSessionStartHook(
   projectPath: string,
   dryRun: boolean,
 ): Promise<{ file: string; found: boolean }> {
@@ -297,6 +317,108 @@ async function removeSessionStartHook(
     updatedHooks.SessionStart = filtered;
   } else {
     delete updatedHooks.SessionStart;
+  }
+
+  const updated: Record<string, unknown> = { ...settings };
+  if (Object.keys(updatedHooks).length > 0) {
+    updated.hooks = updatedHooks;
+  } else {
+    delete updated.hooks;
+  }
+
+  if (!dryRun) {
+    await fs.writeFile(settingsFile, JSON.stringify(updated, null, 2) + "\n", "utf8");
+  }
+
+  return { file: settingsFile, found: true };
+}
+
+/**
+ * Anti-compaction: install a PreToolUse hook that re-injects AGENTS.md on
+ * every tool call.  Protects users who rely solely on the SessionStart hook
+ * (no CLAUDE.md) and whose context gets compacted mid-session.
+ *
+ * Intentionally kept simple — no rate-limiting, just cats the file every time.
+ * Claude Code deduplicates system-reminder content internally.
+ *
+ * Identified by "# agents-sync-anti-compaction" comment for idempotency.
+ */
+const PRE_TOOL_USE_COMMAND =
+  `bash -c '` +
+  `r=$(git -C "$(pwd)" rev-parse --show-toplevel 2>/dev/null||pwd);` +
+  `d=$(pwd);f="";` +
+  `while true;do ` +
+  `[ -f "$d/AGENTS.md" ]&&f="$d/AGENTS.md $f";` +
+  `[ "$d" = "$r" ]&&break;` +
+  `p=$(dirname "$d");[ "$p" = "$d" ]&&break;d=$p;` +
+  `done;` +
+  `for x in $f;do cat "$x";echo;done` +
+  `' # agents-sync-anti-compaction`;
+
+export async function installPreToolUseHook(
+  projectPath: string,
+  dryRun: boolean,
+): Promise<{ file: string; alreadyInstalled: boolean }> {
+  const clauDir = path.join(projectPath, ".claude");
+  const settingsFile = path.join(clauDir, "settings.json");
+
+  let settings: Record<string, unknown> = {};
+  if (await fileExists(settingsFile)) {
+    try {
+      settings = JSON.parse(await fs.readFile(settingsFile, "utf8")) as Record<string, unknown>;
+    } catch { /* ignore */ }
+  }
+
+  const hooks = (settings.hooks ?? {}) as Record<string, unknown>;
+  const preToolUse = (hooks.PreToolUse ?? []) as unknown[];
+
+  if (JSON.stringify(preToolUse).includes("agents-sync-anti-compaction")) {
+    return { file: settingsFile, alreadyInstalled: true };
+  }
+
+  const entry = {
+    matcher: "",
+    hooks: [{ type: "command", command: PRE_TOOL_USE_COMMAND }],
+  };
+
+  const updated: Record<string, unknown> = {
+    ...settings,
+    hooks: { ...hooks, PreToolUse: [...preToolUse, entry] },
+  };
+
+  if (!dryRun) {
+    await fs.mkdir(clauDir, { recursive: true });
+    await fs.writeFile(settingsFile, JSON.stringify(updated, null, 2) + "\n", "utf8");
+  }
+
+  return { file: settingsFile, alreadyInstalled: false };
+}
+
+export async function removePreToolUseHook(
+  projectPath: string,
+  dryRun: boolean,
+): Promise<{ file: string; found: boolean }> {
+  const settingsFile = path.join(projectPath, ".claude", "settings.json");
+  if (!(await fileExists(settingsFile))) return { file: settingsFile, found: false };
+
+  let settings: Record<string, unknown>;
+  try {
+    settings = JSON.parse(await fs.readFile(settingsFile, "utf8")) as Record<string, unknown>;
+  } catch {
+    return { file: settingsFile, found: false };
+  }
+
+  const hooks = (settings.hooks ?? {}) as Record<string, unknown>;
+  const preToolUse = (hooks.PreToolUse ?? []) as unknown[];
+  const filtered = preToolUse.filter((e) => !JSON.stringify(e).includes("agents-sync-anti-compaction"));
+
+  if (filtered.length === preToolUse.length) return { file: settingsFile, found: false };
+
+  const updatedHooks = { ...hooks };
+  if (filtered.length > 0) {
+    updatedHooks.PreToolUse = filtered;
+  } else {
+    delete updatedHooks.PreToolUse;
   }
 
   const updated: Record<string, unknown> = { ...settings };
@@ -398,7 +520,7 @@ export async function runUninstallHook(options: UninstallHookOptions): Promise<U
 }
 
 export async function runInstallHook(options: InstallHookOptions): Promise<InstallHookResult> {
-  const { projectPath, dryRun = false, sessionHook = true } = options;
+  const { projectPath, dryRun = false, sessionHook = true, antiCompaction = false } = options;
   await assertProjectDir(projectPath);
 
   const manager = options.manager ?? (await detectManager(projectPath));
@@ -424,6 +546,14 @@ export async function runInstallHook(options: InstallHookOptions): Promise<Insta
     if (!result.alreadyInstalled) files = [...files, result.file];
   }
 
+  // Optionally install PreToolUse anti-compaction hook
+  let antiCompactionInstalled = false;
+  if (antiCompaction) {
+    const result = await installPreToolUseHook(projectPath, dryRun);
+    antiCompactionInstalled = !result.alreadyInstalled;
+    if (!result.alreadyInstalled) files = [...files, result.file];
+  }
+
   const lines: string[] = [];
 
   if (alreadyInstalled && sessionHookAlreadyInstalled) {
@@ -438,6 +568,10 @@ export async function runInstallHook(options: InstallHookOptions): Promise<Insta
     if (sessionHookInstalled) {
       lines.push("✓ Installed SessionStart hook (.claude/settings.json)");
       lines.push("  → AGENTS.md will be auto-loaded as context in every Claude Code session.");
+    }
+    if (antiCompactionInstalled) {
+      lines.push("✓ Installed anti-compaction PreToolUse hook (.claude/settings.json)");
+      lines.push("  → AGENTS.md will be re-injected on every tool call (survives context compaction).");
     }
     for (const f of files) lines.push(`  → ${f}`);
     lines.push("");
@@ -460,6 +594,7 @@ export async function runInstallHook(options: InstallHookOptions): Promise<Insta
     alreadyInstalled,
     sessionHookInstalled,
     sessionHookAlreadyInstalled,
+    antiCompactionInstalled,
     dryRun,
     report: lines.join("\n"),
   };

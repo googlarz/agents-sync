@@ -13,7 +13,7 @@ import { runScanReport } from "./tools/scan-report.js";
 import { runInstallHook, runUninstallHook } from "./tools/install-hook.js";
 import { runDerive } from "./tools/derive.js";
 
-const VERSION = "1.7.0";
+const VERSION = "1.8.0";
 
 const server = new McpServer({
   name: "agents-sync",
@@ -280,6 +280,32 @@ server.tool(
   },
 );
 
+// ─── agents_sync_check_spec ───────────────────────────────────────────────────
+
+server.tool(
+  "agents_sync_check_spec",
+  "Validate AGENTS.md against the emerging cross-tool spec (Commands section, Architecture section, Guidelines section, minimum length, etc.). Helps ensure your AGENTS.md works well across Claude Code, Cursor, Gemini CLI, Codex, and other tools that read it.",
+  {
+    projectPath: z.string().describe("Absolute path to the project root directory"),
+    ci: z
+      .boolean()
+      .optional()
+      .describe("CI mode: exit 1 on errors only (warnings are informational). Default: exit 1 on any violation."),
+  },
+  async ({ projectPath, ci }) => {
+    try {
+      const { runCheckSpec } = await import("./tools/check-spec.js");
+      const result = await runCheckSpec({ projectPath, ci });
+      return {
+        content: [{ type: "text" as const, text: result.report }],
+        isError: !result.passed,
+      };
+    } catch (e) {
+      return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
+    }
+  },
+);
+
 // ─── agents_sync_lint ────────────────────────────────────────────────────────
 
 server.tool(
@@ -316,6 +342,54 @@ server.tool(
   async ({ projectPath }) => {
     try {
       const result = await runScanReport({ projectPath });
+      return { content: [{ type: "text" as const, text: result.report }] };
+    } catch (e) {
+      return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
+    }
+  },
+);
+
+// ─── agents_sync_load_context ─────────────────────────────────────────────────
+
+server.tool(
+  "agents_sync_load_context",
+  "Install ONLY the Claude Code SessionStart hook that auto-loads AGENTS.md at session start. No scanner, no API call, no AGENTS.md generation — works on any project that already has an AGENTS.md. This is the minimal entry point if you just want Claude Code to read your existing AGENTS.md. Monorepo-aware: walks up to git root and loads all AGENTS.md files in the path.",
+  {
+    projectPath: z.string().describe("Absolute path to the project root directory"),
+    antiCompaction: z
+      .boolean()
+      .optional()
+      .describe("Also install a PreToolUse hook that re-injects AGENTS.md on every tool call. Protects against Claude Code dropping AGENTS.md after context compaction. Default: false."),
+    dryRun: z
+      .boolean()
+      .optional()
+      .describe("Preview what would be written without making changes."),
+  },
+  async ({ projectPath, antiCompaction, dryRun }) => {
+    try {
+      const { runLoadContext } = await import("./tools/load-context.js");
+      const result = await runLoadContext({ projectPath, antiCompaction, dryRun });
+      return { content: [{ type: "text" as const, text: result.report }] };
+    } catch (e) {
+      return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
+    }
+  },
+);
+
+server.tool(
+  "agents_sync_unload_context",
+  "Remove the Claude Code SessionStart hook installed by agents_sync_load_context.",
+  {
+    projectPath: z.string().describe("Absolute path to the project root directory"),
+    dryRun: z
+      .boolean()
+      .optional()
+      .describe("Preview what would be removed without making changes."),
+  },
+  async ({ projectPath, dryRun }) => {
+    try {
+      const { runUnloadContext } = await import("./tools/load-context.js");
+      const result = await runUnloadContext({ projectPath, dryRun });
       return { content: [{ type: "text" as const, text: result.report }] };
     } catch (e) {
       return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
