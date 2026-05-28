@@ -340,16 +340,14 @@ npx @googlarz/agents-sync drift .
 ```
 
 ```
-agents-sync drift report (2026-05-20)
+agents-sync drift report (2026-05-28)
 Last sync: 12 days ago
 
-HIGH  New dependency detected: drizzle-orm
-      (package.json changed — possible architecture shift)
-HIGH  New top-level directory: src/workers/
+MED   Manifest changed (dependencies or scripts updated)
+HIGH  Stack contradiction: AGENTS.md states "prisma" but manifest now has drizzle-orm
+      Database layer may have migrated — re-sync to update AI context
 
-MED   3 new files with new naming pattern
-
-→ Re-sync recommended. Run: agents-sync sync .
+Re-sync strongly recommended. Run: /agents-sync sync
 ```
 
 ### Re-sync
@@ -415,6 +413,7 @@ AGENTS.md (canonical)  ✓
 
 ```bash
 npx @googlarz/agents-sync load-context .             # Just install the SessionStart hook (already have AGENTS.md)
+npx @googlarz/agents-sync load-context . --lazy      # + lazy subdirectory loading (monorepos)
 npx @googlarz/agents-sync load-context . --anti-compaction  # + PreToolUse hook (survives context compaction)
 npx @googlarz/agents-sync unload-context .           # Remove SessionStart/PreToolUse hooks
 
@@ -438,6 +437,7 @@ npx @googlarz/agents-sync init . --tools claude,cursor,kiro,trae  # Specific too
 npx @googlarz/agents-sync sync . --fast              # Skip API call if drift is minor (still refreshes MCP + codegraph)
 
 npx @googlarz/agents-sync install-hook .                        # Pre-commit + SessionStart hooks
+npx @googlarz/agents-sync install-hook . --lazy                 # + lazy subdirectory loading (monorepos)
 npx @googlarz/agents-sync install-hook . --anti-compaction      # + PreToolUse hook
 npx @googlarz/agents-sync install-hook . --dry-run              # Preview without writing
 npx @googlarz/agents-sync install-hook . --no-session-hook      # Pre-commit only
@@ -461,6 +461,14 @@ npx @googlarz/agents-sync uninstall-hook .   # Remove both hooks
 ```
 
 Auto-detects your hook manager — **husky**, **lefthook**, or plain **git hooks**. Force a specific one with `--husky`, `--lefthook`, or `--git`. Skip the SessionStart hook with `--no-session-hook`.
+
+**Monorepo?** Add `--lazy` to also install a second SessionStart entry that tells Claude to check for an `AGENTS.md` whenever it enters a subdirectory it hasn't visited yet. The root `AGENTS.md` loads at session start; package-level `AGENTS.md` files load on demand:
+
+```bash
+npx @googlarz/agents-sync load-context . --lazy
+# or if you're using install-hook:
+npx @googlarz/agents-sync install-hook . --lazy
+```
 
 **What it installs:**
 
@@ -721,7 +729,7 @@ The config is loaded on every `init`/`sync`. Changes take effect on the next syn
 | `agents_sync_validate` | Check if all tool files match AGENTS.md |
 | `agents_sync_status` | Show sync status and managed files |
 | `agents_sync_lint` | Verify codebase against Never rules in AGENTS.md |
-| `agents_sync_load_context` | Install ONLY the SessionStart hook (works on any project with AGENTS.md) |
+| `agents_sync_load_context` | Install ONLY the SessionStart hook (works on any project with AGENTS.md); pass `lazy: true` for monorepos |
 | `agents_sync_unload_context` | Remove SessionStart/PreToolUse hooks |
 | `agents_sync_check_spec` | Validate AGENTS.md against cross-tool spec |
 | `agents_sync_install_hook` | Install pre-commit hook + Claude Code SessionStart hook |
@@ -767,7 +775,7 @@ git clone https://github.com/googlarz/agents-sync
 cd agents-sync
 npm install
 npm run dev   # watch mode
-npm test      # 222 unit tests, no API key needed
+npm test      # 246 unit tests, no API key needed
 ```
 
 Integration tests (require `ANTHROPIC_API_KEY`, run against real fixtures):
