@@ -63,9 +63,10 @@ COMMANDS
   derive [path]             Re-derive all tool files from AGENTS.md (no API call)
   export <tool> [path]      Re-derive a single tool file (no API call)
                             Tools: claude, cursor, copilot, gemini, windsurf, cline, roo, aider, kiro, trae
-  install-hook [path]       Install pre-commit hook that blocks commits when drift is HIGH
+  install-hook [path]       Install pre-commit drift-check hook + Claude Code SessionStart hook
+                            (SessionStart hook auto-loads AGENTS.md in every Claude Code session)
                             Auto-detects husky, lefthook, or plain git hooks
-  uninstall-hook [path]     Remove the agents-sync pre-commit hook
+  uninstall-hook [path]     Remove the agents-sync pre-commit and SessionStart hooks
 
   (no command)              Start MCP server (stdio transport)
 
@@ -77,6 +78,7 @@ OPTIONS
   --husky                   install-hook — force husky hook manager
   --lefthook                install-hook — force lefthook hook manager
   --git                     install-hook — force plain git hooks
+  --no-session-hook         install-hook / uninstall-hook — skip the .claude/settings.json SessionStart hook
   --tools <list>            Comma-separated tools to generate (init/sync/derive)
                             e.g. --tools claude,cursor,kiro,trae
   --repomix-output <file>   Use repomix XML/text output as source corpus
@@ -159,9 +161,20 @@ async function runCli(): Promise<void> {
       const repomixOutput = getFlag("--repomix-output");
       const result = await runInit({ projectPath, tools, dryRun, repomixOutput });
       if (result.dryRun) {
-        process.stdout.write(`Dry run — no files written.\n`);
-        process.stdout.write(`Would generate:\n`);
-        process.stdout.write(`  AGENTS.md\n`);
+        process.stdout.write(`DRY RUN — no files written.\n`);
+        if (result.agentsMdPreview) {
+          process.stdout.write(`\n${"─".repeat(60)}\n`);
+          process.stdout.write(`AGENTS.md (preview):\n`);
+          process.stdout.write(`${"─".repeat(60)}\n`);
+          process.stdout.write(result.agentsMdPreview + "\n");
+          process.stdout.write(`${"─".repeat(60)}\n\n`);
+        }
+        if (result.toolPreviews && result.toolPreviews.length > 0) {
+          process.stdout.write(`Would also write:\n`);
+          for (const tp of result.toolPreviews) {
+            process.stdout.write(`  ${tp.tool} → ${tp.path}\n`);
+          }
+        }
       } else {
         process.stdout.write(`✓ AGENTS.md → ${result.agentsMdPath}\n`);
         for (const f of result.filesWritten) {
@@ -186,8 +199,22 @@ async function runCli(): Promise<void> {
       const tools = getTools() as Parameters<typeof runSync>[0]["tools"];
       const repomixOutput = getFlag("--repomix-output");
       const result = await runSync({ projectPath, tools, fast, dryRun, repomixOutput });
-      for (const f of result.filesUpdated) {
-        process.stdout.write(`✓ ${f.tool} → ${f.path}\n`);
+      if (result.dryRun) {
+        process.stdout.write(`DRY RUN — no files written.\n`);
+        if (result.toolPreviews && result.toolPreviews.length > 0) {
+          process.stdout.write(`\nWould update:\n`);
+          for (const tp of result.toolPreviews) {
+            process.stdout.write(`\n  ${tp.tool} → ${tp.path}\n`);
+            process.stdout.write(`  ${"─".repeat(50)}\n`);
+            const preview = tp.preview.split("\n").map((l) => `  ${l}`).join("\n");
+            process.stdout.write(preview + "\n");
+            process.stdout.write(`  ${"─".repeat(50)}\n`);
+          }
+        }
+      } else {
+        for (const f of result.filesUpdated) {
+          process.stdout.write(`✓ ${f.tool} → ${f.path}\n`);
+        }
       }
       for (const w of result.warnings) {
         process.stdout.write(`  → ${w}\n`);
@@ -245,7 +272,8 @@ async function runCli(): Promise<void> {
       const { runInstallHook } = await import("./tools/install-hook.js");
       const projectPath = resolvePath(positional[1]);
       const manager = hasFlag("--husky") ? "husky" : hasFlag("--lefthook") ? "lefthook" : hasFlag("--git") ? "git" : undefined;
-      const result = await runInstallHook({ projectPath, manager, dryRun });
+      const sessionHook = hasFlag("--no-session-hook") ? false : undefined;
+      const result = await runInstallHook({ projectPath, manager, sessionHook, dryRun });
       process.stdout.write(result.report + "\n");
       break;
     }
@@ -254,7 +282,8 @@ async function runCli(): Promise<void> {
       const { runUninstallHook } = await import("./tools/install-hook.js");
       const projectPath = resolvePath(positional[1]);
       const manager = hasFlag("--husky") ? "husky" : hasFlag("--lefthook") ? "lefthook" : hasFlag("--git") ? "git" : undefined;
-      const result = await runUninstallHook({ projectPath, manager, dryRun });
+      const sessionHook = hasFlag("--no-session-hook") ? false : undefined;
+      const result = await runUninstallHook({ projectPath, manager, sessionHook, dryRun });
       process.stdout.write(result.report + "\n");
       break;
     }

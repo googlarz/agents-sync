@@ -1,0 +1,115 @@
+name: 'agents-sync'
+description: 'Keep AI context files (AGENTS.md, CLAUDE.md, .cursorrules, etc.) in sync with your codebase.'
+author: 'googlarz'
+
+branding:
+  icon: 'refresh-cw'
+  color: 'blue'
+
+inputs:
+  anthropic-api-key:
+    description: 'Anthropic API key. When omitted, agents-sync uses template-based generation (no API call required).'
+    required: false
+    default: ''
+  project-path:
+    description: 'Path to the project root, relative to the repository root.'
+    required: false
+    default: '.'
+  tools:
+    description: 'Comma-separated list of tool files to generate (e.g. "claude,cursor,copilot"). Default: all tools.'
+    required: false
+    default: ''
+  fast:
+    description: 'Skip re-extraction when drift is minor. Passes --fast to agents-sync sync.'
+    required: false
+    default: 'false'
+  create-pr:
+    description: 'Create a pull request when context files are out of date. Requires the GITHUB_TOKEN secret.'
+    required: false
+    default: 'true'
+  pr-title:
+    description: 'Title for the auto-created pull request.'
+    required: false
+    default: 'chore: sync AI context files'
+  commit-message:
+    description: 'Commit message when changes are pushed to the PR branch.'
+    required: false
+    default: 'chore: sync AI context files via agents-sync'
+  version:
+    description: 'agents-sync version to install (npm tag or exact version). Default: latest.'
+    required: false
+    default: 'latest'
+
+outputs:
+  changed:
+    description: '"true" if any context files were updated, "false" otherwise.'
+    value: ${{ steps.check-changes.outputs.changed }}
+  pr-url:
+    description: 'URL of the created pull request (empty if no PR was created).'
+    value: ${{ steps.create-pr.outputs.pull-request-url }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install agents-sync
+      shell: bash
+      run: npm install -g @googlarz/agents-sync@${{ inputs.version }}
+
+    - name: Run agents-sync sync
+      shell: bash
+      env:
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+      run: |
+        SYNC_ARGS="${{ inputs.project-path }}"
+        if [ -n "${{ inputs.tools }}" ]; then
+          SYNC_ARGS="$SYNC_ARGS --tools ${{ inputs.tools }}"
+        fi
+        if [ "${{ inputs.fast }}" = "true" ]; then
+          SYNC_ARGS="$SYNC_ARGS --fast"
+        fi
+        agents-sync sync $SYNC_ARGS
+
+    - name: Check for changes
+      id: check-changes
+      shell: bash
+      run: |
+        if git diff --quiet && git diff --cached --quiet; then
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+        else
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Create pull request
+      id: create-pr
+      if: steps.check-changes.outputs.changed == 'true' && inputs.create-pr == 'true'
+      uses: peter-evans/create-pull-request@v6
+      with:
+        commit-message: ${{ inputs.commit-message }}
+        title: ${{ inputs.pr-title }}
+        body: |
+          AI context files are out of date with the current codebase.
+
+          This PR was created automatically by [agents-sync](https://github.com/googlarz/agents-sync).
+
+          **Files updated:**
+          - `AGENTS.md` — canonical source of truth
+          - `CLAUDE.md` — Claude Code context
+          - `.cursorrules` — Cursor rules
+          - `.github/copilot-instructions.md` — GitHub Copilot
+          - `GEMINI.md` — Gemini CLI
+          - `.windsurfrules` — Windsurf
+          - `.clinerules` — Cline
+          - `.roomodes` — Roo Code
+          - `CONVENTIONS.md` — Aider
+          - `.kiro/steering/agents-sync.md` — Kiro
+          - `.trae/rules/agents-sync.md` — Trae
+
+          Merge to keep all AI tools in sync with your codebase.
+        branch: agents-sync/update-context
+        delete-branch: true
+        labels: 'ai-context,automated'

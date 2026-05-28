@@ -4,6 +4,32 @@ All notable changes to `@googlarz/agents-sync` are documented here.
 
 ---
 
+## [1.7.0] — 2026-05-28
+
+### Added
+- **`@AGENTS.md` import in CLAUDE.md** — `CLAUDE.md` now starts with `@AGENTS.md` so Claude Code reads the canonical context file directly instead of a duplicated copy. Claude Code-specific additions (skill recommendations, local skills, management note) are appended after the import. Existing AGENTS.md + CLAUDE.md users get this automatically on the next sync — no action required.
+- **SessionStart hook** — `install-hook` now also writes a `SessionStart` hook to `.claude/settings.json` that auto-loads `AGENTS.md` as a `<system-reminder>` at the start of every Claude Code session. Works even in nested subdirectories (walks to git root). Opt-out with `--no-session-hook` flag or `sessionHook: false` in the MCP tool.
+- **Uninstall removes SessionStart hook** — `uninstall-hook` now also cleans up the SessionStart entry from `.claude/settings.json`, leaving other hooks untouched.
+
+### Tests
+- 8 new unit tests: SessionStart hook creation, merge with existing settings, idempotency, dry-run, opt-out, uninstall (single-entry removal), uninstall (multi-entry preservation)
+
+---
+
+## [1.6.0] — 2026-05-23
+
+### Added
+- **Single-call Claude pipeline** — `init` and `sync` now make one API call instead of two (corpus → AGENTS.md directly). Cuts latency from 30-60s to ~15-30s and halves API cost. No output quality loss — Claude has the full corpus context when writing AGENTS.md.
+- **Template-based zero-cost init** — when `ANTHROPIC_API_KEY` is not set, `init` and `sync` fall back to stack-specific templates (TypeScript/Node, Python, Go, Rust, Java, generic). Generates a complete, usable AGENTS.md with no API call. Upgrade to AI-powered output at any time by adding an API key.
+- **`--dry-run` now shows content** — init/sync/derive dry-run output shows the first 40 lines of the generated AGENTS.md and a per-tool preview (first 25 lines each), so you can see exactly what would be written before committing.
+- **Published GitHub Action** — `action.yml` at the repo root enables `uses: googlarz/agents-sync@v1` in any CI workflow. Inputs: `anthropic-api-key`, `project-path`, `tools`, `fast`, `create-pr`. Outputs: `changed`, `pr-url`. Auto-creates a PR when context files drift.
+- **`metadataFromCorpus`** — new exported function that infers `ProjectMetadata` (language, framework, testing, database, auth, deploy, other stack) from the scanner corpus without any API call. Used by templates, skill recommendations, and snapshot metadata.
+
+### Tests
+- 33 new unit tests: 14 for templates (stack detection + per-stack rendering), 13 for `metadataFromCorpus` (all inferred fields), 6 for dry-run preview in `deriveAll`
+
+---
+
 ## [1.5.8] — 2026-05-22
 
 ### Fixed

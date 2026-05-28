@@ -1,3 +1,4 @@
+import path from "node:path";
 import { callClaude } from "../lib/claude-client.js";
 import { AgentsSyncError } from "../lib/errors.js";
 import { type ProjectMetadata, ProjectMetadataSchema } from "./schema.js";
@@ -61,6 +62,117 @@ export async function extractMetadata(corpus: RawCorpus): Promise<ProjectMetadat
 
   // TypeScript requires this but it's unreachable
   throw new AgentsSyncError("EXTRACTION_FAILED", "Unexpected extraction failure.");
+}
+
+// ─── Corpus-derived metadata (no API call) ───────────────────────────────────
+
+/**
+ * Builds a ProjectMetadata object from scanner corpus data without calling Claude.
+ * Used by the single-call pipeline and template path to supply metadata for
+ * skill recommendations, snapshot language/framework fields, and applyConfig.
+ */
+export function metadataFromCorpus(corpus: RawCorpus, projectPath: string): ProjectMetadata {
+  const { manifest, structure } = corpus;
+  const allDeps = [...manifest.dependencies, ...manifest.devDependencies].map((d) => d.toLowerCase());
+
+  return {
+    project: {
+      name: manifest.projectName ?? path.basename(projectPath),
+      description: "",
+      language: manifest.language,
+      framework: manifest.framework ?? undefined,
+    },
+    stack: {
+      runtime: manifest.runtime ?? undefined,
+      database: inferDatabase(allDeps),
+      auth: inferAuth(allDeps),
+      testing: inferTesting(allDeps, manifest.scripts),
+      deploy: inferDeploy(allDeps, manifest.scripts),
+      other: inferOtherStack(allDeps),
+    },
+    architecture: {
+      keyDirs: {},
+      entryPoints: structure.entryPoints,
+    },
+    conventions: [],
+    gotchas: [],
+    boundaries: { alwaysDo: [], askFirst: [], never: [] },
+    testing: {
+      framework: inferTesting(allDeps, manifest.scripts),
+      command: manifest.scripts?.test,
+    },
+    deployment: {
+      notes: [],
+    },
+  };
+}
+
+function inferDatabase(deps: string[]): string | undefined {
+  if (deps.some((d) => d.includes("prisma"))) return "postgresql via prisma";
+  if (deps.some((d) => d.includes("drizzle"))) return "sqlite via drizzle";
+  if (deps.some((d) => d.includes("mongoose"))) return "mongodb via mongoose";
+  if (deps.some((d) => d === "pg" || d === "postgres" || d === "@types/pg")) return "postgresql";
+  if (deps.some((d) => d === "mysql2" || d === "mysql")) return "mysql";
+  if (deps.some((d) => d === "better-sqlite3" || d === "sqlite3")) return "sqlite";
+  if (deps.some((d) => d.includes("typeorm"))) return "database via typeorm";
+  if (deps.some((d) => d.includes("sequelize"))) return "database via sequelize";
+  if (deps.some((d) => d.includes("supabase"))) return "postgresql via supabase";
+  return undefined;
+}
+
+function inferAuth(deps: string[]): string | undefined {
+  if (deps.some((d) => d.includes("next-auth") || d.includes("nextauth"))) return "next-auth";
+  if (deps.some((d) => d.includes("@auth/") || d.includes("auth.js"))) return "auth.js";
+  if (deps.some((d) => d.includes("passport"))) return "passport.js";
+  if (deps.some((d) => d.includes("clerk"))) return "clerk";
+  if (deps.some((d) => d.includes("lucia"))) return "lucia-auth";
+  if (deps.some((d) => d.includes("better-auth"))) return "better-auth";
+  if (deps.some((d) => d === "jsonwebtoken" || d === "jose")) return "jwt";
+  if (deps.some((d) => d.includes("supabase"))) return "supabase auth";
+  if (deps.some((d) => d.includes("firebase"))) return "firebase auth";
+  return undefined;
+}
+
+function inferTesting(deps: string[], scripts?: Record<string, string>): string | undefined {
+  if (deps.some((d) => d.startsWith("vitest"))) return "vitest";
+  if (deps.some((d) => d === "jest" || d === "@types/jest" || d.startsWith("jest-"))) return "jest";
+  if (deps.some((d) => d === "mocha" || d === "@types/mocha")) return "mocha";
+  if (deps.some((d) => d === "ava")) return "ava";
+  if (deps.some((d) => d.startsWith("pytest") || d === "py.test")) return "pytest";
+  if (scripts?.test?.includes("cargo test")) return "cargo test";
+  if (scripts?.test?.includes("go test")) return "go test";
+  return undefined;
+}
+
+function inferDeploy(deps: string[], scripts?: Record<string, string>): string | undefined {
+  if (deps.some((d) => d.includes("@vercel/") || d.includes("vercel"))) return "vercel";
+  if (deps.some((d) => d.includes("netlify"))) return "netlify";
+  if (deps.some((d) => d.includes("railway"))) return "railway";
+  if (deps.some((d) => d.includes("fly"))) return "fly.io";
+  if (deps.some((d) => d.includes("serverless"))) return "serverless";
+  if (scripts?.deploy?.includes("docker")) return "docker";
+  if (scripts?.deploy?.includes("heroku")) return "heroku";
+  return undefined;
+}
+
+function inferOtherStack(deps: string[]): string[] {
+  const notable: string[] = [];
+  const checks: [string, string][] = [
+    ["stripe", "stripe"],
+    ["openai", "openai"],
+    ["anthropic", "anthropic"],
+    ["redis", "redis"],
+    ["bull", "bullmq"],
+    ["socket.io", "socket.io"],
+    ["@trpc/", "trpc"],
+    ["graphql", "graphql"],
+    ["zod", "zod"],
+    ["tailwind", "tailwindcss"],
+  ];
+  for (const [pattern, label] of checks) {
+    if (deps.some((d) => d.includes(pattern))) notable.push(label);
+  }
+  return notable;
 }
 
 function extractJson(text: string): unknown {

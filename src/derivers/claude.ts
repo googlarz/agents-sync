@@ -15,16 +15,12 @@ const CLAUDE_CODE_SECTION = `---
 
 ## Claude Code Notes
 
-> This file is managed by agents-sync. Edit \`AGENTS.md\` and run \`/agents-sync sync\`.
-
-### Tool Files
-- Canonical: \`AGENTS.md\`
-- Cursor: \`.cursorrules\`
-- Copilot: \`.github/copilot-instructions.md\`
+> This file is managed by agents-sync. \`@AGENTS.md\` imports the canonical context.
+> Edit \`AGENTS.md\` directly, then run \`agents-sync sync\` to propagate to all tool files.
 
 ### Re-sync
-Run \`/agents-sync sync\` after major refactors, new dependencies, or architecture changes.
-Run \`/agents-sync drift\` to check what's changed since last sync.
+Run \`agents-sync sync\` after major refactors, new dependencies, or architecture changes.
+Run \`agents-sync drift\` to check what's changed since last sync.
 `;
 
 interface SkillRec { slug: string; reason: string }
@@ -82,16 +78,21 @@ function recommendSkills(metadata: ProjectMetadata): SkillRec[] {
 }
 
 /**
- * Derives the full content for CLAUDE.md.
+ * Derives the content for CLAUDE.md.
  *
- * Content = canonical AGENTS.md + Claude Code-specific section.
+ * Uses `@AGENTS.md` import so Claude Code loads the canonical context directly.
+ * Only Claude Code-specific additions (skill recommendations, local skills,
+ * management note) are appended after the import line — AGENTS.md is never
+ * duplicated into this file.
+ *
  * If preserveCustom is true (default) any existing custom blocks from the
  * current CLAUDE.md are appended after the generated body.
  *
  * Does NOT write the file — the caller is responsible for writing.
  */
 export async function deriveClaudeMd(options: ClaudeDerivationOptions): Promise<string> {
-  const { projectPath, agentsMdContent, metadata, preserveCustom = true } = options;
+  const { projectPath, agentsMdContent: _agentsMdContent, metadata, preserveCustom = true } = options;
+  // agentsMdContent is intentionally unused: CLAUDE.md imports it via @AGENTS.md instead.
 
   const skillsSummary = await scanProjectSkills(projectPath);
   const skillsSection = formatSkillsSection(skillsSummary);
@@ -102,7 +103,8 @@ export async function deriveClaudeMd(options: ClaudeDerivationOptions): Promise<
     ? `\n## Recommended Skills\n\n${recs.map((r) => `- \`/${r.slug}\` — ${r.reason}`).join("\n")}\n`
     : "";
 
-  const generated = `${agentsMdContent.trimEnd()}${skillsBlock}${recsBlock}\n${CLAUDE_CODE_SECTION}`;
+  // @AGENTS.md import — Claude Code reads AGENTS.md directly, no duplication.
+  const generated = `@AGENTS.md\n${skillsBlock}${recsBlock}\n${CLAUDE_CODE_SECTION}`;
 
   if (!preserveCustom) return generated;
 

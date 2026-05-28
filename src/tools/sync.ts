@@ -1,10 +1,10 @@
 import path from "node:path";
 import { assertProjectDir, readFileSafe, writeFileAtomic } from "../lib/file-utils.js";
 import { AgentsSyncError } from "../lib/errors.js";
-import type { ProjectMetadata } from "../extractor/schema.js";
 import { scan } from "../scanner/index.js";
-import { extractMetadata } from "../extractor/extractor.js";
-import { generateAgentsMd, appendMcpSection, appendCodegraphSection } from "../generator/agents-md.js";
+import { metadataFromCorpus } from "../extractor/extractor.js";
+import { generateAgentsMdDirect, appendMcpSection, appendCodegraphSection } from "../generator/agents-md.js";
+import { generateFromTemplate } from "../templates/index.js";
 import { validateAgentsMd } from "../generator/validator.js";
 import { deriveAll, type ToolName } from "../derivers/index.js";
 import { buildSnapshot, loadSnapshot, saveSnapshot, sha256 } from "../snapshot/writer.js";
@@ -29,6 +29,8 @@ export interface SyncResult {
   warnings: string[];
   skippedExtraction: boolean;
   dryRun: boolean;
+  /** Per-tool previews — populated only when dryRun is true. */
+  toolPreviews?: { tool: string; path: string; preview: string }[];
 }
 
 export async function runSync(options: SyncOptions): Promise<SyncResult> {
@@ -71,10 +73,23 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
     }
     agentsMd = existing;
   } else {
-    // Full re-extraction
-    const rawMetadata = await withSpinner("extracting with Claude…", () => extractMetadata(corpus));
+    // Full re-generation — single Claude call, or template if no API key
+    let rawAgentsMd: string;
+    let rawMetadata: ReturnType<typeof metadataFromCorpus>;
+
+    if (process.env.ANTHROPIC_API_KEY) {
+      rawAgentsMd = await withSpinner("generating with Claude…", () => generateAgentsMdDirect(corpus));
+      rawMetadata = metadataFromCorpus(corpus, projectPath);
+    } else {
+      const tpl = generateFromTemplate(corpus, projectPath);
+      rawAgentsMd = tpl.agentsMd;
+      rawMetadata = tpl.metadata;
+      process.stderr.write(`agents-sync: no API key — generated from ${tpl.templateUsed} template\n`);
+      process.stderr.write(`  Add ANTHROPIC_API_KEY for AI-powered output: export ANTHROPIC_API_KEY=sk-ant-...\n`);
+    }
+
     const metadata = applyConfig(rawMetadata, config);
-    agentsMd = appendCodegraphSection(appendMcpSection(await generateAgentsMd(metadata), corpus.mcp), corpus.codegraph);
+    agentsMd = appendCodegraphSection(appendMcpSection(rawAgentsMd, corpus.mcp), corpus.codegraph);
     const validation = validateAgentsMd(agentsMd, corpus.structure.topLevelDirs);
 
     if (!dryRun) {
@@ -125,6 +140,9 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
       warnings,
       skippedExtraction: false,
       dryRun,
+      toolPreviews: dryRun
+        ? derivations.filter((d) => !d.error && d.dryRunPreview).map((d) => ({ tool: d.tool as string, path: d.path, preview: d.dryRunPreview! }))
+        : undefined,
     };
   }
 
@@ -134,21 +152,8 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
     throw new AgentsSyncError("NO_SNAPSHOT", "No snapshot found. Run /agents-sync init first.");
   }
 
-  const stubMetadata: ProjectMetadata = {
-    project: {
-      name: path.basename(projectPath),
-      description: "",
-      language: fastSnapshot.meta.language,
-      framework: fastSnapshot.meta.framework ?? undefined,
-    },
-    stack: { other: [] },
-    architecture: { keyDirs: {}, entryPoints: [] },
-    conventions: [],
-    gotchas: [],
-    boundaries: { alwaysDo: [], askFirst: [], never: [] },
-    testing: {},
-    deployment: { notes: [] },
-  };
+  // Build corpus-derived metadata for fast path (no API call)
+  const stubMetadata = metadataFromCorpus(corpus, projectPath);
 
   // Always refresh MCP and codegraph sections — local, free, no API call
   agentsMd = appendCodegraphSection(appendMcpSection(agentsMd, corpus.mcp), corpus.codegraph);
@@ -169,5 +174,8 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
     warnings: ["Fast mode: drift is LOW — used cached metadata (no Claude API call)"],
     skippedExtraction: true,
     dryRun,
+    toolPreviews: dryRun
+      ? derivations.filter((d) => !d.error && d.dryRunPreview).map((d) => ({ tool: d.tool as string, path: d.path, preview: d.dryRunPreview! }))
+      : undefined,
   };
 }

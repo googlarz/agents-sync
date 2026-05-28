@@ -138,7 +138,11 @@ Show what the scanner detected — language, framework, dependencies, MCP server
 
 ### `/agents-sync install-hook`
 
-Install a pre-commit hook that blocks commits when AI context files have drifted. Auto-detects husky, lefthook, or plain git hooks.
+Install two hooks:
+1. **Pre-commit** — blocks commits when AI context files have drifted (auto-detects husky, lefthook, or plain git)
+2. **Claude Code SessionStart** — writes `.claude/settings.json` hook that auto-loads `AGENTS.md` as context at session start
+
+Use `--no-session-hook` to install only the pre-commit hook.
 
 **Usage:**
 > `/agents-sync install-hook`

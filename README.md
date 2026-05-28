@@ -4,7 +4,7 @@
 
 **Write your AI context once. Every tool stays in sync — automatically.**
 
-**11 AI tools · drifts detected in milliseconds · 100% local · ~$0.05–0.10 per sync**
+**11 AI tools · zero-cost template mode · ~$0.03–0.06 per AI sync · drifts detected in milliseconds**
 
 [![npm](https://img.shields.io/npm/v/@googlarz/agents-sync?style=flat-square&label=npm)](https://www.npmjs.com/package/@googlarz/agents-sync)
 [![License](https://img.shields.io/badge/License-MIT-8B9500?style=flat-square)](LICENSE)
@@ -124,7 +124,15 @@ Scanned in 287ms · ~21,400 tokens of context
   Get a key: https://console.anthropic.com/
 ```
 
-**Step 2 — generate all context files (~$0.05–0.10, runs once):**
+**Step 2 — generate all context files:**
+
+No API key? No problem — templates work without one:
+
+```bash
+npx @googlarz/agents-sync init .
+```
+
+With an API key for AI-powered output (~$0.03–0.06 per sync with the single-call pipeline):
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-... npx @googlarz/agents-sync init .
@@ -209,9 +217,11 @@ via Drizzle ORM, and Auth.js v5 for authentication.
 <details>
 <summary><strong>What CLAUDE.md adds on top of AGENTS.md</strong></summary>
 
-- **MCP server documentation** — each detected server with its purpose and key operations
+`CLAUDE.md` starts with `@AGENTS.md` — Claude Code reads the canonical context file directly instead of a copy. Only Claude Code-specific additions follow the import line:
+
 - **Skill recommendations** — stack-aware suggestions (e.g. `test-driven-development` for Vitest projects, `debugging-and-error-recovery` for Express APIs)
 - **Local commands** — your project's `.claude/commands/` and `.claude/skills/` documented for Claude
+- **Management note** — points to `AGENTS.md` as the canonical source
 
 </details>
 
@@ -403,25 +413,29 @@ npx @googlarz/agents-sync init . --dry-run           # Preview without writing
 npx @googlarz/agents-sync init . --tools claude,cursor,kiro,trae  # Specific tools only
 npx @googlarz/agents-sync sync . --fast              # Skip API call if drift is minor (still refreshes MCP + codegraph)
 
-npx @googlarz/agents-sync install-hook .             # Block commits when drift is HIGH
-npx @googlarz/agents-sync install-hook . --dry-run   # Preview what would be installed
-npx @googlarz/agents-sync uninstall-hook .           # Remove the pre-commit hook
+npx @googlarz/agents-sync install-hook .                        # Pre-commit + SessionStart hooks
+npx @googlarz/agents-sync install-hook . --dry-run              # Preview without writing
+npx @googlarz/agents-sync install-hook . --no-session-hook      # Pre-commit only
+npx @googlarz/agents-sync uninstall-hook .                      # Remove both hooks
 ```
 
 </details>
 
 ---
 
-## Pre-commit Hook
+## Hooks
 
-Block commits automatically when AI context files drift from `AGENTS.md`:
+`install-hook` does two things:
+
+1. **Pre-commit drift check** — blocks commits when AI context files drift from `AGENTS.md`
+2. **Claude Code SessionStart hook** — auto-loads `AGENTS.md` as context at the start of every Claude Code session (via `.claude/settings.json`)
 
 ```bash
 npx @googlarz/agents-sync install-hook .
-npx @googlarz/agents-sync uninstall-hook .   # Remove the hook
+npx @googlarz/agents-sync uninstall-hook .   # Remove both hooks
 ```
 
-Auto-detects your hook manager — **husky**, **lefthook**, or plain **git hooks**. Force a specific one with `--husky`, `--lefthook`, or `--git`.
+Auto-detects your hook manager — **husky**, **lefthook**, or plain **git hooks**. Force a specific one with `--husky`, `--lefthook`, or `--git`. Skip the SessionStart hook with `--no-session-hook`.
 
 **What it installs:**
 
@@ -470,13 +484,86 @@ Plain git hooks are local only — each teammate runs `install-hook` once. For s
 
 </details>
 
+<details>
+<summary>SessionStart (Claude Code)</summary>
+
+```json
+// .claude/settings.json  (merged, not overwritten)
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'r=$(git -C \"$(pwd)\" rev-parse --show-toplevel 2>/dev/null || pwd); [ -f \"$r/AGENTS.md\" ] && cat \"$r/AGENTS.md\" || true' # agents-sync"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Walks to the git root from the current working directory, so it works correctly when you open a subdirectory. Merges into existing `settings.json` — other hooks and settings are preserved. Uninstall removes only the agents-sync entry.
+
+</details>
+
 ---
 
 ## GitHub Action
 
-Automatically open a PR when drift goes HIGH. Copy [`docs/github-action.yml`](docs/github-action.yml) to `.github/workflows/agents-sync.yml`, add `ANTHROPIC_API_KEY` to repository secrets.
+agents-sync ships a published GitHub Action. Drop this into `.github/workflows/agents-sync.yml`:
 
-The workflow triggers on `package.json` / `pyproject.toml` / `Cargo.toml` / `go.mod` changes and runs weekly. When drift is HIGH it re-syncs and opens a PR for review.
+```yaml
+name: Sync AI context files
+
+on:
+  push:
+    paths:
+      - 'package.json'
+      - 'pyproject.toml'
+      - 'Cargo.toml'
+      - 'go.mod'
+      - 'pom.xml'
+      - 'build.gradle'
+  schedule:
+    - cron: '0 9 * * 1'   # Every Monday at 9 AM
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: googlarz/agents-sync@v1
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          create-pr: true
+```
+
+**Inputs:**
+
+| Input | Default | Description |
+|---|---|---|
+| `anthropic-api-key` | _(empty)_ | API key. When omitted, uses template mode (no cost). |
+| `project-path` | `.` | Path to the project root |
+| `tools` | all | Comma-separated list: `claude,cursor,copilot,…` |
+| `fast` | `false` | Pass `--fast` to skip re-extraction on minor drift |
+| `create-pr` | `true` | Create a PR when files are updated |
+| `pr-title` | `chore: sync AI context files` | PR title |
+| `version` | `latest` | agents-sync npm version to install |
+
+**Outputs:** `changed` (`true`/`false`), `pr-url` (URL of the created PR)
+
+> **Tip:** `ANTHROPIC_API_KEY` is optional — the action works without it using template-based generation. This means you can add the action to open-source repos where storing secrets is impractical.
+
+For a more customized workflow, see [`docs/github-action.yml`](docs/github-action.yml).
 
 ---
 
@@ -492,12 +579,22 @@ Your codebase
 [scan]  package manifests · directory tree · source samples
         README · FIXME/HACK/TODO comments · MCP servers · local skills
      │
-     ▼
-[extract]  Claude API (claude-sonnet-4-6) → structured project metadata
-           stack · conventions · gotchas · architecture · boundaries
+     ├── (with ANTHROPIC_API_KEY)
+     │        │
+     │        ▼
+     │   [generate]  Claude API (claude-sonnet-4-6) — single call
+     │               corpus → AGENTS.md directly (no JSON intermediate)
+     │               ~15–30s · ~$0.03–0.06 per run
+     │
+     └── (without ANTHROPIC_API_KEY)
+              │
+              ▼
+         [template]  stack-specific template (TypeScript/Node, Python,
+                     Go, Rust, Java, generic) filled with scanner data
+                     0s · $0.00
      │
      ▼
-[generate]  canonical AGENTS.md  ←── one source of truth
+[AGENTS.md]  ←── one canonical source of truth
      │
      ├──▶  AGENTS.md         (read directly by Codex CLI and opencode)
      ├──▶  CLAUDE.md          (superset + MCP docs + skill recommendations)
@@ -512,7 +609,7 @@ Your codebase
      └──▶  .trae/rules/agents-sync.md     (Trae IDE rules)
 ```
 
-The scanner runs entirely locally. Only the extract step calls the API. Drift detection, validation, lint, and export are all local.
+The scanner and all derivers run entirely locally. Only the generate step calls the API (single call). Drift detection, validation, lint, export, derive, and template mode are all local.
 
 </details>
 
@@ -521,7 +618,9 @@ The scanner runs entirely locally. Only the extract step calls the API. Drift de
 ## Troubleshooting
 
 **"ANTHROPIC_API_KEY not set"**
-Only `init` and `sync` need the key. Run `scan` first — it shows what was detected and prints the exact command to run once you have a key.
+`init` and `sync` now work without a key — they fall back to stack-specific templates (TypeScript/Node, Python, Go, Rust, Java). Add `ANTHROPIC_API_KEY` to switch to AI-powered output.
+
+Other commands (`scan`, `drift`, `validate`, `status`, `export`, `derive`, `lint`) never need a key.
 
 **"My AGENTS.md looks wrong / missed something important"**
 Run `agents-sync sync .` to regenerate from the current codebase state. If the scanner missed something structural, check that your project has a recognizable manifest file (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`).
@@ -597,8 +696,8 @@ The config is loaded on every `init`/`sync`. Changes take effect on the next syn
 | `agents_sync_validate` | Check if all tool files match AGENTS.md |
 | `agents_sync_status` | Show sync status and managed files |
 | `agents_sync_lint` | Verify codebase against Never rules in AGENTS.md |
-| `agents_sync_install_hook` | Install pre-commit hook (husky/lefthook/git) |
-| `agents_sync_uninstall_hook` | Remove the agents-sync pre-commit hook |
+| `agents_sync_install_hook` | Install pre-commit hook + Claude Code SessionStart hook |
+| `agents_sync_uninstall_hook` | Remove both agents-sync hooks |
 
 </details>
 
@@ -629,7 +728,7 @@ Language-agnostic — works on any codebase with a manifest file.
 
 ## Related Tools
 
-**[cc-safe-setup](https://github.com/yurukusa/cc-safe-setup)** — if you want Claude Code to load `AGENTS.md` natively today without generating a `CLAUDE.md`, install their `agents-md-loader` SessionStart hook. It walks up to the git root, finds `AGENTS.md`, and surfaces it to Claude Code as a system reminder. Works well alongside agents-sync for teams that want the reading side covered while the [upstream feature](https://github.com/anthropics/claude-code/issues/6235) is still open.
+**[cc-safe-setup](https://github.com/yurukusa/cc-safe-setup)** — pioneered the `agents-md-loader` SessionStart hook pattern that agents-sync now ships natively via `install-hook`. If you only want the SessionStart hook without the full agents-sync pipeline, cc-safe-setup is a lighter option. For teams who also want AGENTS.md generation, drift detection, and 11-tool derivation, `agents-sync install-hook .` covers everything in one command.
 
 ---
 
@@ -640,7 +739,7 @@ git clone https://github.com/googlarz/agents-sync
 cd agents-sync
 npm install
 npm run dev   # watch mode
-npm test      # 189 unit tests, no API key needed
+npm test      # 222 unit tests, no API key needed
 ```
 
 Integration tests (require `ANTHROPIC_API_KEY`, run against real fixtures):

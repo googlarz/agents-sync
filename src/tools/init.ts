@@ -1,8 +1,9 @@
 import path from "node:path";
 import { assertProjectDir, readFileSafe, writeFileAtomic } from "../lib/file-utils.js";
 import { scan } from "../scanner/index.js";
-import { extractMetadata } from "../extractor/extractor.js";
-import { generateAgentsMd, appendMcpSection, appendCodegraphSection } from "../generator/agents-md.js";
+import { metadataFromCorpus } from "../extractor/extractor.js";
+import { generateAgentsMdDirect, appendMcpSection, appendCodegraphSection } from "../generator/agents-md.js";
+import { generateFromTemplate } from "../templates/index.js";
 import { validateAgentsMd } from "../generator/validator.js";
 import { deriveAll, type ToolName } from "../derivers/index.js";
 import { buildSnapshot, saveSnapshot, sha256 } from "../snapshot/writer.js";
@@ -29,6 +30,10 @@ export interface InitResult {
   tokenUsage: { input: number; output: number; cacheHit: number };
   warnings: string[];
   dryRun: boolean;
+  /** First 40 lines of what AGENTS.md would contain — populated only when dryRun is true. */
+  agentsMdPreview?: string;
+  /** Per-tool previews — populated only when dryRun is true. */
+  toolPreviews?: { tool: string; path: string; preview: string }[];
 }
 
 export async function runInit(options: InitOptions): Promise<InitResult> {
@@ -43,17 +48,31 @@ export async function runInit(options: InitOptions): Promise<InitResult> {
   // 2. Load team config (agents-sync.config.json) — non-fatal if missing
   const config = await loadConfig(projectPath);
 
-  // 3. Extract metadata and merge config overrides
-  const rawMetadata = await withSpinner("extracting with Claude…", () => extractMetadata(corpus));
-  const metadata = applyConfig(rawMetadata, config);
-
-  // 4. Resolve effective tool list: CLI flag > config > default (all)
+  // 3. Resolve effective tool list: CLI flag > config > default (all)
   const effectiveTools = tools ?? (config?.tools as ToolName[] | undefined);
 
-  // 5. Generate AGENTS.md, then append MCP section if servers detected
-  const agentsMd = appendCodegraphSection(appendMcpSection(await generateAgentsMd(metadata), corpus.mcp), corpus.codegraph);
+  // 4. Generate AGENTS.md — single Claude call, or template if no API key
+  let rawAgentsMd: string;
+  let rawMetadata: ReturnType<typeof metadataFromCorpus>;
 
-  // 6. Validate
+  if (process.env.ANTHROPIC_API_KEY) {
+    rawAgentsMd = await withSpinner("generating with Claude…", () => generateAgentsMdDirect(corpus));
+    rawMetadata = metadataFromCorpus(corpus, projectPath);
+  } else {
+    const tpl = generateFromTemplate(corpus, projectPath);
+    rawAgentsMd = tpl.agentsMd;
+    rawMetadata = tpl.metadata;
+    process.stderr.write(`agents-sync: no API key — generated from ${tpl.templateUsed} template\n`);
+    process.stderr.write(`  Add ANTHROPIC_API_KEY for AI-powered output: export ANTHROPIC_API_KEY=sk-ant-...\n`);
+  }
+
+  // 5. Derive metadata from corpus (no extra API call) — used for skill recommendations + snapshot
+  const metadata = applyConfig(rawMetadata, config);
+
+  // 6. Append MCP section and codegraph section
+  const agentsMd = appendCodegraphSection(appendMcpSection(rawAgentsMd, corpus.mcp), corpus.codegraph);
+
+  // 7. Validate
   const validation = validateAgentsMd(agentsMd, corpus.structure.topLevelDirs);
   const warnings = [...validation.warnings];
   if (!validation.passed) {
@@ -136,6 +155,19 @@ export async function runInit(options: InitOptions): Promise<InitResult> {
     warnings.push("Tip: add .agents-sync/ to your .gitignore");
   }
 
+  const agentsMdPreview = dryRun
+    ? (() => {
+        const lines = agentsMdToWrite.split("\n");
+        return lines.slice(0, 40).join("\n") + (lines.length > 40 ? "\n…" : "");
+      })()
+    : undefined;
+
+  const toolPreviews = dryRun
+    ? derivations
+        .filter((d) => !d.error && d.dryRunPreview)
+        .map((d) => ({ tool: d.tool as string, path: d.path, preview: d.dryRunPreview! }))
+    : undefined;
+
   return {
     success: true,
     agentsMdPath,
@@ -145,5 +177,7 @@ export async function runInit(options: InitOptions): Promise<InitResult> {
     tokenUsage: { input: 0, output: 0, cacheHit: 0 },
     warnings,
     dryRun,
+    agentsMdPreview,
+    toolPreviews,
   };
 }

@@ -1,6 +1,6 @@
 {
   "name": "@googlarz/agents-sync",
-  "version": "1.5.8",
+  "version": "1.7.0",
   "description": "Write your AI context once. One canonical AGENTS.md auto-derived into CLAUDE.md, .cursorrules, copilot-instructions.md, GEMINI.md, .windsurfrules, and .clinerules.",
   "keywords": [
     "claude",

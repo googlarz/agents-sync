@@ -13,7 +13,7 @@ import { runScanReport } from "./tools/scan-report.js";
 import { runInstallHook, runUninstallHook } from "./tools/install-hook.js";
 import { runDerive } from "./tools/derive.js";
 
-const VERSION = "1.5.8";
+const VERSION = "1.7.0";
 
 const server = new McpServer({
   name: "agents-sync",
@@ -43,9 +43,19 @@ server.tool(
 
       if (result.dryRun) {
         lines.push("DRY RUN — no files written\n");
-        lines.push(`→ Would write: ${result.agentsMdPath}`);
-        for (const f of result.filesWritten) {
-          lines.push(`→ Would write: ${f.path}`);
+        if (result.agentsMdPreview) {
+          lines.push("─".repeat(60));
+          lines.push("AGENTS.md (preview):");
+          lines.push("─".repeat(60));
+          lines.push(result.agentsMdPreview);
+          lines.push("─".repeat(60));
+          lines.push("");
+        }
+        if (result.toolPreviews && result.toolPreviews.length > 0) {
+          lines.push("Would also write:");
+          for (const tp of result.toolPreviews) {
+            lines.push(`  ${tp.tool} → ${tp.path}`);
+          }
         }
       } else {
         lines.push(`✓ AGENTS.md → ${result.agentsMdPath}`);
@@ -97,8 +107,18 @@ server.tool(
       if (result.dryRun) lines.push("DRY RUN — no files written\n");
       if (result.skippedExtraction) lines.push("⚡ Fast mode: skipped re-extraction\n");
 
-      for (const f of result.filesUpdated) {
-        lines.push(result.dryRun ? `→ Would write: ${f.path}` : `✓ ${f.tool} → ${f.path}`);
+      if (result.dryRun && result.toolPreviews && result.toolPreviews.length > 0) {
+        lines.push("Would update:");
+        for (const tp of result.toolPreviews) {
+          lines.push(`\n${tp.tool} → ${tp.path}`);
+          lines.push("─".repeat(50));
+          lines.push(tp.preview);
+          lines.push("─".repeat(50));
+        }
+      } else {
+        for (const f of result.filesUpdated) {
+          lines.push(`✓ ${f.tool} → ${f.path}`);
+        }
       }
 
       if (result.customSectionsPreserved > 0) {
@@ -307,21 +327,25 @@ server.tool(
 
 server.tool(
   "agents_sync_install_hook",
-  "Install a pre-commit hook that blocks commits when AI context files have drifted from AGENTS.md. Auto-detects husky, lefthook, or plain git hooks.",
+  "Install a pre-commit drift-check hook and a Claude Code SessionStart hook that auto-loads AGENTS.md as context. Auto-detects husky, lefthook, or plain git hooks.",
   {
     projectPath: z.string().describe("Absolute path to the project root directory"),
     manager: z
       .enum(["husky", "lefthook", "git"])
       .optional()
       .describe("Force a specific hook manager. Default: auto-detect."),
+    sessionHook: z
+      .boolean()
+      .optional()
+      .describe("Also install a Claude Code SessionStart hook in .claude/settings.json that auto-loads AGENTS.md. Default: true."),
     dryRun: z
       .boolean()
       .optional()
       .describe("Preview what would be written without making changes."),
   },
-  async ({ projectPath, manager, dryRun }) => {
+  async ({ projectPath, manager, sessionHook, dryRun }) => {
     try {
-      const result = await runInstallHook({ projectPath, manager, dryRun });
+      const result = await runInstallHook({ projectPath, manager, sessionHook, dryRun });
       return { content: [{ type: "text" as const, text: result.report }] };
     } catch (e) {
       return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
@@ -333,21 +357,25 @@ server.tool(
 
 server.tool(
   "agents_sync_uninstall_hook",
-  "Remove the agents-sync pre-commit hook installed by agents_sync_install_hook.",
+  "Remove the agents-sync pre-commit hook and SessionStart hook installed by agents_sync_install_hook.",
   {
     projectPath: z.string().describe("Absolute path to the project root directory"),
     manager: z
       .enum(["husky", "lefthook", "git"])
       .optional()
       .describe("Force a specific hook manager. Default: auto-detect."),
+    sessionHook: z
+      .boolean()
+      .optional()
+      .describe("Also remove the Claude Code SessionStart hook from .claude/settings.json. Default: true."),
     dryRun: z
       .boolean()
       .optional()
       .describe("Preview what would be removed without making changes."),
   },
-  async ({ projectPath, manager, dryRun }) => {
+  async ({ projectPath, manager, sessionHook, dryRun }) => {
     try {
-      const result = await runUninstallHook({ projectPath, manager, dryRun });
+      const result = await runUninstallHook({ projectPath, manager, sessionHook, dryRun });
       return { content: [{ type: "text" as const, text: result.report }] };
     } catch (e) {
       return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };

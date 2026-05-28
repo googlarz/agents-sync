@@ -28,6 +28,8 @@ export interface DerivationResult {
   contentHash?: string;
   /** true when dryRun is enabled — file was not written. */
   skipped?: boolean;
+  /** First 25 lines of the generated content — populated only when dryRun is true. */
+  dryRunPreview?: string;
   error?: string;
 }
 
@@ -179,12 +181,15 @@ export async function deriveAll(options: DeriveAllOptions): Promise<DerivationRe
       const customBlocksPreserved = extractCustomBlocks(content).length;
 
       if (dryRun) {
+        const lines = content.split("\n");
+        const preview = lines.slice(0, 25).join("\n") + (lines.length > 25 ? "\n…" : "");
         results.push({
           tool,
           path: filePath,
           written: false,
           customBlocksPreserved,
           skipped: true,
+          dryRunPreview: preview,
         });
         continue;
       }

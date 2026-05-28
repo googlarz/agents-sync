@@ -15,12 +15,20 @@ export interface InstallHookOptions {
   projectPath: string;
   manager?: HookManager;
   dryRun?: boolean;
+  /**
+   * Also install a Claude Code SessionStart hook in `.claude/settings.json`
+   * that auto-loads AGENTS.md as context at the start of every session.
+   * @default true
+   */
+  sessionHook?: boolean;
 }
 
 export interface InstallHookResult {
   manager: HookManager;
   filesWritten: string[];
   alreadyInstalled: boolean;
+  sessionHookInstalled: boolean;
+  sessionHookAlreadyInstalled: boolean;
   dryRun: boolean;
   report: string;
 }
@@ -203,9 +211,115 @@ async function installGitHook(projectPath: string, dryRun: boolean): Promise<{ f
   return { files: [hookFile], alreadyInstalled: false };
 }
 
+// ---------------------------------------------------------------------------
+// Claude Code SessionStart hook — loads AGENTS.md as context automatically
+// ---------------------------------------------------------------------------
+
+/**
+ * Shell command injected into .claude/settings.json SessionStart hook.
+ * Walks up to git root, finds AGENTS.md, and cats it so Claude Code injects
+ * it as a <system-reminder> at the start of every session.
+ * The trailing comment "# agents-sync" is used as an idempotency marker.
+ */
+const SESSION_HOOK_COMMAND =
+  `bash -c 'r=$(git -C "$(pwd)" rev-parse --show-toplevel 2>/dev/null || pwd); ` +
+  `[ -f "$r/AGENTS.md" ] && cat "$r/AGENTS.md" || true' # agents-sync`;
+
+async function installSessionStartHook(
+  projectPath: string,
+  dryRun: boolean,
+): Promise<{ file: string; alreadyInstalled: boolean }> {
+  const clauDir = path.join(projectPath, ".claude");
+  const settingsFile = path.join(clauDir, "settings.json");
+
+  // Load existing settings (best-effort)
+  let settings: Record<string, unknown> = {};
+  if (await fileExists(settingsFile)) {
+    try {
+      settings = JSON.parse(await fs.readFile(settingsFile, "utf8")) as Record<string, unknown>;
+    } catch {
+      // ignore; we'll merge our addition in
+    }
+  }
+
+  const hooks = (settings.hooks ?? {}) as Record<string, unknown>;
+  const sessionStart = (hooks.SessionStart ?? []) as unknown[];
+
+  // Already installed?
+  if (JSON.stringify(sessionStart).includes("agents-sync")) {
+    return { file: settingsFile, alreadyInstalled: true };
+  }
+
+  const entry = {
+    matcher: "",
+    hooks: [{ type: "command", command: SESSION_HOOK_COMMAND }],
+  };
+
+  const updated: Record<string, unknown> = {
+    ...settings,
+    hooks: {
+      ...hooks,
+      SessionStart: [...sessionStart, entry],
+    },
+  };
+
+  if (!dryRun) {
+    await fs.mkdir(clauDir, { recursive: true });
+    await fs.writeFile(settingsFile, JSON.stringify(updated, null, 2) + "\n", "utf8");
+  }
+
+  return { file: settingsFile, alreadyInstalled: false };
+}
+
+async function removeSessionStartHook(
+  projectPath: string,
+  dryRun: boolean,
+): Promise<{ file: string; found: boolean }> {
+  const settingsFile = path.join(projectPath, ".claude", "settings.json");
+
+  if (!(await fileExists(settingsFile))) return { file: settingsFile, found: false };
+
+  let settings: Record<string, unknown>;
+  try {
+    settings = JSON.parse(await fs.readFile(settingsFile, "utf8")) as Record<string, unknown>;
+  } catch {
+    return { file: settingsFile, found: false };
+  }
+
+  const hooks = (settings.hooks ?? {}) as Record<string, unknown>;
+  const sessionStart = (hooks.SessionStart ?? []) as unknown[];
+  const filtered = sessionStart.filter((e) => !JSON.stringify(e).includes("agents-sync"));
+
+  if (filtered.length === sessionStart.length) return { file: settingsFile, found: false };
+
+  const updatedHooks = { ...hooks };
+  if (filtered.length > 0) {
+    updatedHooks.SessionStart = filtered;
+  } else {
+    delete updatedHooks.SessionStart;
+  }
+
+  const updated: Record<string, unknown> = { ...settings };
+  if (Object.keys(updatedHooks).length > 0) {
+    updated.hooks = updatedHooks;
+  } else {
+    delete updated.hooks;
+  }
+
+  if (!dryRun) {
+    await fs.writeFile(settingsFile, JSON.stringify(updated, null, 2) + "\n", "utf8");
+  }
+
+  return { file: settingsFile, found: true };
+}
+
+// ---------------------------------------------------------------------------
+
 export interface UninstallHookOptions {
   projectPath: string;
   manager?: HookManager;
+  /** Also remove the Claude Code SessionStart hook from .claude/settings.json. @default true */
+  sessionHook?: boolean;
   dryRun?: boolean;
 }
 
@@ -213,6 +327,7 @@ export interface UninstallHookResult {
   manager: HookManager;
   filesModified: string[];
   notInstalled: boolean;
+  sessionHookRemoved: boolean;
   dryRun: boolean;
   report: string;
 }
@@ -238,7 +353,7 @@ async function removeAgentsSyncFromFile(filePath: string, dryRun: boolean): Prom
 }
 
 export async function runUninstallHook(options: UninstallHookOptions): Promise<UninstallHookResult> {
-  const { projectPath, dryRun = false } = options;
+  const { projectPath, dryRun = false, sessionHook = true } = options;
   await assertProjectDir(projectPath);
 
   const manager = options.manager ?? (await detectManager(projectPath));
@@ -257,6 +372,14 @@ export async function runUninstallHook(options: UninstallHookOptions): Promise<U
     if (await removeAgentsSyncFromFile(hookFile, dryRun)) filesModified.push(hookFile);
   }
 
+  // Remove SessionStart hook from .claude/settings.json
+  let sessionHookRemoved = false;
+  if (sessionHook) {
+    const result = await removeSessionStartHook(projectPath, dryRun);
+    sessionHookRemoved = result.found;
+    if (result.found) filesModified.push(result.file);
+  }
+
   const notInstalled = filesModified.length === 0;
   const lines: string[] = [];
 
@@ -267,14 +390,15 @@ export async function runUninstallHook(options: UninstallHookOptions): Promise<U
     for (const f of filesModified) lines.push(`  → ${f}`);
   } else {
     lines.push(`✓ Removed agents-sync pre-commit hook (${manager})`);
+    if (sessionHookRemoved) lines.push("✓ Removed agents-sync SessionStart hook (.claude/settings.json)");
     for (const f of filesModified) lines.push(`  → ${f}`);
   }
 
-  return { manager, filesModified, notInstalled, dryRun, report: lines.join("\n") };
+  return { manager, filesModified, notInstalled, sessionHookRemoved, dryRun, report: lines.join("\n") };
 }
 
 export async function runInstallHook(options: InstallHookOptions): Promise<InstallHookResult> {
-  const { projectPath, dryRun = false } = options;
+  const { projectPath, dryRun = false, sessionHook = true } = options;
   await assertProjectDir(projectPath);
 
   const manager = options.manager ?? (await detectManager(projectPath));
@@ -290,22 +414,38 @@ export async function runInstallHook(options: InstallHookOptions): Promise<Insta
     ({ files, alreadyInstalled } = await installGitHook(projectPath, dryRun));
   }
 
+  // Install SessionStart hook in .claude/settings.json
+  let sessionHookInstalled = false;
+  let sessionHookAlreadyInstalled = false;
+  if (sessionHook) {
+    const result = await installSessionStartHook(projectPath, dryRun);
+    sessionHookAlreadyInstalled = result.alreadyInstalled;
+    sessionHookInstalled = !result.alreadyInstalled;
+    if (!result.alreadyInstalled) files = [...files, result.file];
+  }
+
   const lines: string[] = [];
 
-  if (alreadyInstalled) {
-    lines.push("✓ agents-sync hook already installed — nothing to do.");
+  if (alreadyInstalled && sessionHookAlreadyInstalled) {
+    lines.push("✓ agents-sync hooks already installed — nothing to do.");
   } else if (dryRun) {
     lines.push(`DRY RUN — detected manager: ${manager}`);
     for (const f of files) lines.push(`→ Would write: ${f}`);
   } else {
-    lines.push(`✓ Installed pre-commit hook (${manager})`);
+    if (!alreadyInstalled) {
+      lines.push(`✓ Installed pre-commit hook (${manager})`);
+    }
+    if (sessionHookInstalled) {
+      lines.push("✓ Installed SessionStart hook (.claude/settings.json)");
+      lines.push("  → AGENTS.md will be auto-loaded as context in every Claude Code session.");
+    }
     for (const f of files) lines.push(`  → ${f}`);
     lines.push("");
 
     if (manager === "git") {
       lines.push("  ⚠ Git hook is local only — teammates need to run install-hook too.");
       lines.push("  → For shared hooks, add husky or lefthook to your project.");
-    } else {
+    } else if (!alreadyInstalled) {
       lines.push("  Commit .lefthook.yml (or .husky/pre-commit) so teammates get the hook too.");
     }
 
@@ -318,6 +458,8 @@ export async function runInstallHook(options: InstallHookOptions): Promise<Insta
     manager,
     filesWritten: files,
     alreadyInstalled,
+    sessionHookInstalled,
+    sessionHookAlreadyInstalled,
     dryRun,
     report: lines.join("\n"),
   };
