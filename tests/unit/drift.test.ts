@@ -206,7 +206,6 @@ describe("drift detection", () => {
         runtime: "node 20",
         packageManager: "npm",
         // AGENTS.md says "prisma" but manifest now has drizzle-orm → HIGH semantic signal
-        // Dep names must be bare (no version suffix) for set membership to work
         dependencies: ["next", "react", "zod", "drizzle-orm"],
         devDependencies: ["typescript"],
         scripts: {},

@@ -7,33 +7,58 @@ Set Height 700
 Set Padding 20
 Set Shell zsh
 
+# ─── setup (hidden) ───────────────────────────────────────────────────────────
+
 Hide
-Type "cd /tmp/demo-fresh"
+Type "cd /tmp/demo-existing"
 Enter
-Sleep 300ms
+Sleep 200ms
 Show
 
-Type "agents-sync init ."
-Sleep 500ms
-Enter
-Sleep 23s
+# ─── scene 1: project already has AGENTS.md — load-context ───────────────────
 
-Type "ls"
-Sleep 400ms
+Type "agents-sync load-context ."
+Sleep 300ms
 Enter
-Sleep 1500ms
+Sleep 2500ms
 
-Type "cat .cursorrules"
-Sleep 400ms
-Enter
-Sleep 3500ms
+Sleep 2s
 
-Type "bash add-dep.sh && mkdir workers && touch workers/email-worker.ts"
-Sleep 400ms
+Type "clear"
 Enter
-Sleep 500ms
+Sleep 200ms
+
+# ─── scene 2: fresh project — init generates everything ──────────────────────
+
+Type "cd /tmp/demo-fresh"
+Enter
+Sleep 400ms
+
+Type "agents-sync derive ."
+Sleep 300ms
+Enter
+Sleep 3s
+
+Sleep 1s
+
+Type "ls -A"
+Enter
+Sleep 2s
+
+Sleep 2s
+
+Type "clear"
+Enter
+Sleep 200ms
+
+# ─── scene 3: drift detection ─────────────────────────────────────────────────
+
+Type "bash add-dep.sh"
+Sleep 300ms
+Enter
+Sleep 600ms
 
 Type "agents-sync drift ."
-Sleep 400ms
+Sleep 300ms
 Enter
 Sleep 2500ms

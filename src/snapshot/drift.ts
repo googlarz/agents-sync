@@ -122,9 +122,12 @@ function computeMaxSeverity(signals: DriftSignal[]): DriftSeverity | "NONE" {
 export function detectSemanticDrift(agentsMdContent: string, corpus: RawCorpus): DriftSignal[] {
   const signals: DriftSignal[] = [];
   const md = agentsMdContent.toLowerCase();
+  // Strip version suffix — scanner returns "name@version", rivals list has bare names.
+  // Scoped packages (@scope/name@version) must strip from the last "@" onward.
+  const stripVer = (d: string) => d.toLowerCase().replace(/@[^@/][^@]*$/, "");
   const allDeps = new Set([
-    ...corpus.manifest.dependencies.map((d) => d.toLowerCase()),
-    ...corpus.manifest.devDependencies.map((d) => d.toLowerCase()),
+    ...corpus.manifest.dependencies.map(stripVer),
+    ...corpus.manifest.devDependencies.map(stripVer),
   ]);
   const tree = corpus.structure.tree.toLowerCase();
 
