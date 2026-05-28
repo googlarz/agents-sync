@@ -91,8 +91,8 @@ function recommendSkills(metadata: ProjectMetadata): SkillRec[] {
  * Does NOT write the file — the caller is responsible for writing.
  */
 export async function deriveClaudeMd(options: ClaudeDerivationOptions): Promise<string> {
-  const { projectPath, agentsMdContent: _agentsMdContent, metadata, preserveCustom = true } = options;
-  // agentsMdContent is intentionally unused: CLAUDE.md imports it via @AGENTS.md instead.
+  // agentsMdContent is intentionally not used: CLAUDE.md imports it via @AGENTS.md instead.
+  const { projectPath, metadata, preserveCustom = true } = options;
 
   const skillsSummary = await scanProjectSkills(projectPath);
   const skillsSection = formatSkillsSection(skillsSummary);
