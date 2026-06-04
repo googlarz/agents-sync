@@ -776,6 +776,8 @@ Language-agnostic — works on any codebase with a manifest file.
 
 **[cc-safe-setup](https://github.com/yurukusa/cc-safe-setup)** — pioneered the `agents-md-loader` SessionStart hook pattern that agents-sync now ships natively via `install-hook`. If you only want the SessionStart hook without the full agents-sync pipeline, cc-safe-setup is a lighter option. For teams who also want AGENTS.md generation, drift detection, and 11-tool derivation, `agents-sync install-hook .` covers everything in one command.
 
+**[cc-agents-md](https://github.com/ido777/cc-agents-md)** — patches the Claude Code JavaScript directly so it reads `AGENTS.md` natively alongside `CLAUDE.md`, without any hook. Works until the next Claude Code update (needs re-patching after upgrades). Use if you want the absolute minimum setup and are comfortable reapplying the patch on CC updates. agents-sync takes the opposite approach: works with Claude Code's documented hook and `@`-import mechanisms, so it never breaks on updates.
+
 ---
 
 ## Contributing
