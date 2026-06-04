@@ -67,6 +67,7 @@ COMMANDS
                             --ci exits 1 only on errors, not warnings
   load-context [path]       Install ONLY the Claude Code SessionStart hook — no init needed
                             Works on any project that already has AGENTS.md
+                            Use --global to install once for all projects (~/.claude/settings.json)
   unload-context [path]     Remove the SessionStart hook
   install-hook [path]       Install pre-commit drift-check hook + Claude Code SessionStart hook
                             (SessionStart hook auto-loads AGENTS.md in every Claude Code session)
@@ -88,6 +89,8 @@ OPTIONS
                             AGENTS.md on every tool call (survives context compaction)
   --lazy                    load-context / install-hook — install a SessionStart instruction that tells
                             Claude to check for AGENTS.md in subdirectories it enters (monorepo support)
+  --global                  load-context / unload-context — install into ~/.claude/settings.json so
+                            AGENTS.md auto-loads in every project, not just this one
   --tools <list>            Comma-separated tools to generate (init/sync/derive)
                             e.g. --tools claude,cursor,kiro,trae
   --repomix-output <file>   Use repomix XML/text output as source corpus
@@ -292,7 +295,8 @@ async function runCli(): Promise<void> {
       const projectPath = resolvePath(positional[1]);
       const antiCompaction = hasFlag("--anti-compaction");
       const lazy = hasFlag("--lazy");
-      const result = await runLoadContext({ projectPath, dryRun, antiCompaction, lazy });
+      const global = hasFlag("--global");
+      const result = await runLoadContext({ projectPath, dryRun, antiCompaction, lazy, global });
       process.stdout.write(result.report + "\n");
       break;
     }
@@ -300,7 +304,8 @@ async function runCli(): Promise<void> {
     case "unload-context": {
       const { runUnloadContext } = await import("./tools/load-context.js");
       const projectPath = resolvePath(positional[1]);
-      const result = await runUnloadContext({ projectPath, dryRun });
+      const global = hasFlag("--global");
+      const result = await runUnloadContext({ projectPath, dryRun, global });
       process.stdout.write(result.report + "\n");
       break;
     }

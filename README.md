@@ -82,7 +82,11 @@ It doesn't stay written once.
 **Already have AGENTS.md?** One command makes Claude Code read it automatically — no init, no API key:
 
 ```bash
+# This project only:
 npx @googlarz/agents-sync load-context .
+
+# Every project on this machine (run once, done forever):
+npx @googlarz/agents-sync load-context --global
 ```
 
 ```
@@ -413,9 +417,11 @@ AGENTS.md (canonical)  ✓
 
 ```bash
 npx @googlarz/agents-sync load-context .             # Just install the SessionStart hook (already have AGENTS.md)
+npx @googlarz/agents-sync load-context --global      # Install once for ALL projects on this machine (~/.claude)
 npx @googlarz/agents-sync load-context . --lazy      # + lazy subdirectory loading (monorepos)
 npx @googlarz/agents-sync load-context . --anti-compaction  # + PreToolUse hook (survives context compaction)
 npx @googlarz/agents-sync unload-context .           # Remove SessionStart/PreToolUse hooks
+npx @googlarz/agents-sync unload-context --global    # Remove the global hook
 
 npx @googlarz/agents-sync scan .                     # No API key — see what scanner detects
 npx @googlarz/agents-sync init .                     # Generate all context files
@@ -729,7 +735,7 @@ The config is loaded on every `init`/`sync`. Changes take effect on the next syn
 | `agents_sync_validate` | Check if all tool files match AGENTS.md |
 | `agents_sync_status` | Show sync status and managed files |
 | `agents_sync_lint` | Verify codebase against Never rules in AGENTS.md |
-| `agents_sync_load_context` | Install ONLY the SessionStart hook (works on any project with AGENTS.md); pass `lazy: true` for monorepos |
+| `agents_sync_load_context` | Install ONLY the SessionStart hook; pass `global: true` to cover all projects on the machine, `lazy: true` for monorepos |
 | `agents_sync_unload_context` | Remove SessionStart/PreToolUse hooks |
 | `agents_sync_check_spec` | Validate AGENTS.md against cross-tool spec |
 | `agents_sync_install_hook` | Install pre-commit hook + Claude Code SessionStart hook |
@@ -775,7 +781,7 @@ git clone https://github.com/googlarz/agents-sync
 cd agents-sync
 npm install
 npm run dev   # watch mode
-npm test      # 246 unit tests, no API key needed
+npm test      # 248 unit tests, no API key needed
 ```
 
 Integration tests (require `ANTHROPIC_API_KEY`, run against real fixtures):

@@ -19,6 +19,7 @@ import {
   removePreToolUseHook,
   installLazyHook,
   removeLazyHook,
+  globalClaudeDir,
 } from "./install-hook.js";
 
 export interface LoadContextOptions {
@@ -39,6 +40,13 @@ export interface LoadContextOptions {
    * @default false
    */
   lazy?: boolean;
+  /**
+   * Install into ~/.claude/settings.json instead of <project>/.claude/settings.json.
+   * Covers every Claude Code session on this machine — no per-project setup needed.
+   * When true, projectPath is only used to check for AGENTS.md presence.
+   * @default false
+   */
+  global?: boolean;
 }
 
 export interface LoadContextResult {
@@ -51,29 +59,33 @@ export interface LoadContextResult {
 }
 
 export async function runLoadContext(options: LoadContextOptions): Promise<LoadContextResult> {
-  const { projectPath, dryRun = false, antiCompaction = false, lazy = false } = options;
+  const { projectPath, dryRun = false, antiCompaction = false, lazy = false, global: isGlobal = false } = options;
 
-  const settingsFile = path.join(projectPath, ".claude", "settings.json");
+  const clauDir = isGlobal ? globalClaudeDir() : path.join(projectPath, ".claude");
+  const settingsFile = path.join(clauDir, "settings.json");
   const agentsMdPath = path.join(projectPath, "AGENTS.md");
   const agentsMdFound = await fileExists(agentsMdPath);
 
-  const { alreadyInstalled, file } = await installSessionStartHook(projectPath, dryRun);
+  const { alreadyInstalled, file } = await installSessionStartHook(projectPath, dryRun, clauDir);
 
   let antiCompactionInstalled = false;
   if (antiCompaction) {
-    const result = await installPreToolUseHook(projectPath, dryRun);
+    const result = await installPreToolUseHook(projectPath, dryRun, clauDir);
     antiCompactionInstalled = !result.alreadyInstalled;
   }
 
   let lazyInstalled = false;
   if (lazy) {
-    const result = await installLazyHook(projectPath, dryRun);
+    const result = await installLazyHook(projectPath, dryRun, clauDir);
     lazyInstalled = !result.alreadyInstalled;
   }
 
   const lines: string[] = [];
 
-  if (!agentsMdFound) {
+  if (isGlobal && !agentsMdFound) {
+    lines.push("⚠  No AGENTS.md found in this directory (global hook will still work in any project that has one).");
+    lines.push("");
+  } else if (!isGlobal && !agentsMdFound) {
     lines.push("⚠  No AGENTS.md found in this directory.");
     lines.push("   The hook will still be installed — it silently no-ops when AGENTS.md is absent.");
     lines.push("   Create AGENTS.md manually, or run `agents-sync init .` to generate one.");
@@ -81,7 +93,7 @@ export async function runLoadContext(options: LoadContextOptions): Promise<LoadC
   }
 
   if (alreadyInstalled) {
-    lines.push("✓ SessionStart hook already installed — nothing to do.");
+    lines.push(`✓ SessionStart hook already installed — nothing to do.`);
     lines.push(`  → ${file}`);
   } else if (dryRun) {
     lines.push("DRY RUN — would write:");
@@ -98,10 +110,17 @@ export async function runLoadContext(options: LoadContextOptions): Promise<LoadC
       lines.push("  → Claude will check for AGENTS.md in subdirectories it enters (monorepo support).");
     }
     lines.push("");
-    lines.push("AGENTS.md will now be auto-loaded as context at the start of every Claude Code session.");
-    lines.push("Works from subdirectories — walks up to git root to find all AGENTS.md files.");
-    lines.push("");
-    lines.push("To remove:  agents-sync unload-context .");
+    if (isGlobal) {
+      lines.push("AGENTS.md will now be auto-loaded in every Claude Code session, across all projects.");
+      lines.push("Works from any directory — walks up to git root to find all AGENTS.md files.");
+      lines.push("");
+      lines.push("To remove:  agents-sync unload-context --global");
+    } else {
+      lines.push("AGENTS.md will now be auto-loaded as context at the start of every Claude Code session.");
+      lines.push("Works from subdirectories — walks up to git root to find all AGENTS.md files.");
+      lines.push("");
+      lines.push("To remove:  agents-sync unload-context .");
+    }
   }
 
   return {
@@ -115,10 +134,11 @@ export async function runLoadContext(options: LoadContextOptions): Promise<LoadC
 }
 
 export async function runUnloadContext(options: LoadContextOptions): Promise<{ report: string }> {
-  const { projectPath, dryRun = false } = options;
-  const session = await removeSessionStartHook(projectPath, dryRun);
-  const preToolUse = await removePreToolUseHook(projectPath, dryRun);
-  const lazy = await removeLazyHook(projectPath, dryRun);
+  const { projectPath, dryRun = false, global: isGlobal = false } = options;
+  const clauDir = isGlobal ? globalClaudeDir() : undefined;
+  const session = await removeSessionStartHook(projectPath, dryRun, clauDir);
+  const preToolUse = await removePreToolUseHook(projectPath, dryRun, clauDir);
+  const lazy = await removeLazyHook(projectPath, dryRun, clauDir);
 
   if (!session.found && !preToolUse.found && !lazy.found) {
     return { report: "No agents-sync context hooks found — nothing to remove." };

@@ -13,7 +13,7 @@ import { runScanReport } from "./tools/scan-report.js";
 import { runInstallHook, runUninstallHook } from "./tools/install-hook.js";
 import { runDerive } from "./tools/derive.js";
 
-const VERSION = "1.8.1";
+const VERSION = "1.8.2";
 
 const server = new McpServer({
   name: "agents-sync",
@@ -364,15 +364,19 @@ server.tool(
       .boolean()
       .optional()
       .describe("Install a SessionStart instruction that tells Claude to check for AGENTS.md in subdirectories it enters. Useful in monorepos where each package has its own AGENTS.md below the project root. Default: false."),
+    global: z
+      .boolean()
+      .optional()
+      .describe("Install into ~/.claude/settings.json so AGENTS.md auto-loads in every Claude Code session on this machine, across all projects. Default: false (installs per-project)."),
     dryRun: z
       .boolean()
       .optional()
       .describe("Preview what would be written without making changes."),
   },
-  async ({ projectPath, antiCompaction, lazy, dryRun }) => {
+  async ({ projectPath, antiCompaction, lazy, global: isGlobal, dryRun }) => {
     try {
       const { runLoadContext } = await import("./tools/load-context.js");
-      const result = await runLoadContext({ projectPath, antiCompaction, lazy, dryRun });
+      const result = await runLoadContext({ projectPath, antiCompaction, lazy, global: isGlobal, dryRun });
       return { content: [{ type: "text" as const, text: result.report }] };
     } catch (e) {
       return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };
@@ -385,15 +389,19 @@ server.tool(
   "Remove the Claude Code SessionStart hook installed by agents_sync_load_context.",
   {
     projectPath: z.string().describe("Absolute path to the project root directory"),
+    global: z
+      .boolean()
+      .optional()
+      .describe("Remove from ~/.claude/settings.json (global install) instead of the project settings. Pass true if you installed with global: true."),
     dryRun: z
       .boolean()
       .optional()
       .describe("Preview what would be removed without making changes."),
   },
-  async ({ projectPath, dryRun }) => {
+  async ({ projectPath, global: isGlobal, dryRun }) => {
     try {
       const { runUnloadContext } = await import("./tools/load-context.js");
-      const result = await runUnloadContext({ projectPath, dryRun });
+      const result = await runUnloadContext({ projectPath, global: isGlobal, dryRun });
       return { content: [{ type: "text" as const, text: result.report }] };
     } catch (e) {
       return { content: [{ type: "text" as const, text: `Error: ${toMcpError(e)}` }], isError: true };

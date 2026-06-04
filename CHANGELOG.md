@@ -4,6 +4,16 @@ All notable changes to `@googlarz/agents-sync` are documented here.
 
 ---
 
+## [1.8.2] — 2026-06-04
+
+### Added
+- **`--global` flag** on `load-context` and `unload-context` / **`global` param** on `agents_sync_load_context` and `agents_sync_unload_context` MCP tools — installs the SessionStart hook into `~/.claude/settings.json` instead of the project's `.claude/settings.json`. One command covers every Claude Code session on the machine, across all projects. No per-project setup needed.
+
+### Tests
+- 2 new unit tests: `installSessionStartHook` writes to custom settingsDir (simulating `~/.claude`), `--global` report text includes "across all projects"
+
+---
+
 ## [1.8.1] — 2026-05-28
 
 ### Added

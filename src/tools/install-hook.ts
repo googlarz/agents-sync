@@ -7,7 +7,13 @@
  */
 import path from "node:path";
 import fs from "node:fs/promises";
+import os from "node:os";
 import { assertProjectDir, fileExists } from "../lib/file-utils.js";
+
+/** Path to the user-level Claude Code config directory (~/.claude). */
+export function globalClaudeDir(): string {
+  return path.join(os.homedir(), ".claude");
+}
 
 export type HookManager = "husky" | "lefthook" | "git";
 
@@ -257,8 +263,9 @@ const SESSION_HOOK_COMMAND =
 export async function installSessionStartHook(
   projectPath: string,
   dryRun: boolean,
+  settingsDir?: string,
 ): Promise<{ file: string; alreadyInstalled: boolean }> {
-  const clauDir = path.join(projectPath, ".claude");
+  const clauDir = settingsDir ?? path.join(projectPath, ".claude");
   const settingsFile = path.join(clauDir, "settings.json");
 
   // Load existing settings (best-effort)
@@ -303,8 +310,9 @@ export async function installSessionStartHook(
 export async function removeSessionStartHook(
   projectPath: string,
   dryRun: boolean,
+  settingsDir?: string,
 ): Promise<{ file: string; found: boolean }> {
-  const settingsFile = path.join(projectPath, ".claude", "settings.json");
+  const settingsFile = path.join(settingsDir ?? path.join(projectPath, ".claude"), "settings.json");
 
   if (!(await fileExists(settingsFile))) return { file: settingsFile, found: false };
 
@@ -366,8 +374,9 @@ const LAZY_HOOK_COMMAND =
 export async function installLazyHook(
   projectPath: string,
   dryRun: boolean,
+  settingsDir?: string,
 ): Promise<{ file: string; alreadyInstalled: boolean }> {
-  const clauDir = path.join(projectPath, ".claude");
+  const clauDir = settingsDir ?? path.join(projectPath, ".claude");
   const settingsFile = path.join(clauDir, "settings.json");
 
   let settings: Record<string, unknown> = {};
@@ -405,8 +414,9 @@ export async function installLazyHook(
 export async function removeLazyHook(
   projectPath: string,
   dryRun: boolean,
+  settingsDir?: string,
 ): Promise<{ file: string; found: boolean }> {
-  const settingsFile = path.join(projectPath, ".claude", "settings.json");
+  const settingsFile = path.join(settingsDir ?? path.join(projectPath, ".claude"), "settings.json");
   if (!(await fileExists(settingsFile))) return { file: settingsFile, found: false };
 
   let settings: Record<string, unknown>;
@@ -468,8 +478,9 @@ const PRE_TOOL_USE_COMMAND =
 export async function installPreToolUseHook(
   projectPath: string,
   dryRun: boolean,
+  settingsDir?: string,
 ): Promise<{ file: string; alreadyInstalled: boolean }> {
-  const clauDir = path.join(projectPath, ".claude");
+  const clauDir = settingsDir ?? path.join(projectPath, ".claude");
   const settingsFile = path.join(clauDir, "settings.json");
 
   let settings: Record<string, unknown> = {};
@@ -507,8 +518,9 @@ export async function installPreToolUseHook(
 export async function removePreToolUseHook(
   projectPath: string,
   dryRun: boolean,
+  settingsDir?: string,
 ): Promise<{ file: string; found: boolean }> {
-  const settingsFile = path.join(projectPath, ".claude", "settings.json");
+  const settingsFile = path.join(settingsDir ?? path.join(projectPath, ".claude"), "settings.json");
   if (!(await fileExists(settingsFile))) return { file: settingsFile, found: false };
 
   let settings: Record<string, unknown>;
