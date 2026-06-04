@@ -66,6 +66,19 @@ export async function runLoadContext(options: LoadContextOptions): Promise<LoadC
   const agentsMdPath = path.join(projectPath, "AGENTS.md");
   const agentsMdFound = await fileExists(agentsMdPath);
 
+  // Detect whether CLAUDE.md already imports @AGENTS.md (agents-sync init default).
+  // If it does, the SessionStart hook and the @-import both load AGENTS.md — the hook
+  // is still useful for subdirectory sessions where CLAUDE.md isn't auto-loaded, but
+  // users should know context will appear once (Claude Code deduplicates system-reminders).
+  const claudeMdPath = path.join(projectPath, "CLAUDE.md");
+  let claudeMdHasImport = false;
+  if (await fileExists(claudeMdPath)) {
+    try {
+      const claudeMd = await (await import("node:fs/promises")).readFile(claudeMdPath, "utf8");
+      claudeMdHasImport = claudeMd.includes("@AGENTS.md");
+    } catch { /* ignore */ }
+  }
+
   const { alreadyInstalled, file } = await installSessionStartHook(projectPath, dryRun, clauDir);
 
   let antiCompactionInstalled = false;
@@ -120,6 +133,12 @@ export async function runLoadContext(options: LoadContextOptions): Promise<LoadC
       lines.push("Works from subdirectories — walks up to git root to find all AGENTS.md files.");
       lines.push("");
       lines.push("To remove:  agents-sync unload-context .");
+    }
+    if (claudeMdHasImport && !isGlobal) {
+      lines.push("");
+      lines.push("ℹ  CLAUDE.md already imports @AGENTS.md — that covers the main session.");
+      lines.push("   This hook adds coverage for subdirectory sessions where CLAUDE.md isn't auto-loaded.");
+      lines.push("   Claude Code deduplicates content, so AGENTS.md won't appear twice in context.");
     }
   }
 

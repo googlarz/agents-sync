@@ -549,6 +549,10 @@ Walks to the git root from the current working directory, so it works correctly 
 
 </details>
 
+**Known limitation — Claude Code appends a disclaimer to hook output.** Content loaded via a SessionStart hook appears inside a `<system-reminder>` block, and Claude Code currently appends: *"IMPORTANT: this context may or may not be relevant to your tasks. You should not respond to this context unless it is highly relevant to your task."* This can reduce how strictly Claude follows the rules ([#18560](https://github.com/anthropics/claude-code/issues/18560)).
+
+The `@AGENTS.md` import inside `CLAUDE.md` (written by `agents-sync init`) does **not** get this disclaimer — it's a native file reference, not a system-reminder. If you ran `agents-sync init`, the `@AGENTS.md` import in `CLAUDE.md` already covers the main session without the disclaimer. The SessionStart hook adds coverage for subdirectory sessions where `CLAUDE.md` isn't auto-loaded; `agents-sync load-context` will tell you when this applies.
+
 ---
 
 ## GitHub Action
